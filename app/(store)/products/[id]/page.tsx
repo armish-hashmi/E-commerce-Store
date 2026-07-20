@@ -1,20 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, use } from 'react';
 import Link from 'next/link';
 import { MOCK_PRODUCTS } from '@/data/mockData';
 
-export default async function ProductDetailPage({ 
+export default function ProductDetailPage({ 
   params 
 }: { 
   params: Promise<{ id: string }> 
 }) { 
-  const resolvedParams = await params;
+  const resolvedParams = use(params);
   const product = MOCK_PRODUCTS.find((p) => p.id === resolvedParams.id) || MOCK_PRODUCTS[0];
+
+  const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
+  const [activeTab, setActiveTab] = useState<'description' | 'reviews'>('description');
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-      {/* Breadcrumb Navigation */}
       <nav className="mb-8 flex items-center space-x-2 text-sm text-gray-500">
         <Link href="/" className="hover:text-indigo-600">Home</Link>
         <span>/</span>
@@ -23,9 +25,7 @@ export default async function ProductDetailPage({
         <span className="text-gray-900 font-medium">{product.name}</span>
       </nav>
 
-      {/* Main Product Section */}
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-2">
-        {/* Gallery Preview */}
         <div className="space-y-4">
           <div className="aspect-square w-full overflow-hidden rounded-2xl bg-gray-100 border border-gray-200">
             <img
@@ -62,11 +62,11 @@ export default async function ProductDetailPage({
 
             <p className="mt-4 text-gray-600 leading-relaxed">{product.description}</p>
 
-            {/* Quantity Selector */}
             <div className="mt-6 flex items-center space-x-4">
               <span className="text-sm font-medium text-gray-700">Quantity:</span>
               <div className="flex items-center rounded-lg border border-gray-300">
                 <button
+                  type="button"
                   onClick={() => setSelectedQuantity(Math.max(1, selectedQuantity - 1))}
                   className="px-3 py-1 text-gray-600 hover:bg-gray-100"
                 >
@@ -74,6 +74,7 @@ export default async function ProductDetailPage({
                 </button>
                 <span className="px-4 py-1 font-semibold text-gray-800">{selectedQuantity}</span>
                 <button
+                  type="button"
                   onClick={() => setSelectedQuantity(selectedQuantity + 1)}
                   className="px-3 py-1 text-gray-600 hover:bg-gray-100"
                 >
@@ -97,6 +98,7 @@ export default async function ProductDetailPage({
       <div className="mt-16 border-t border-gray-200 pt-8">
         <div className="flex space-x-8 border-b border-gray-200">
           <button
+            type="button"
             onClick={() => setActiveTab('description')}
             className={`pb-4 text-sm font-semibold ${
               activeTab === 'description'
@@ -107,6 +109,7 @@ export default async function ProductDetailPage({
             Detailed Specifications
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('reviews')}
             className={`pb-4 text-sm font-semibold ${
               activeTab === 'reviews'
