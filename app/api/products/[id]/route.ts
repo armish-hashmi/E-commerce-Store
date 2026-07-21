@@ -1,14 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import { Product } from '@/lib/models/Product';
 
 export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params; 
     await connectToDatabase();
-    await Product.findByIdAndDelete(params.id);
+    
+    await Product.findByIdAndDelete(id);
 
     return NextResponse.json({ message: 'Product deleted successfully' }, { status: 200 });
   } catch (error) {
@@ -17,16 +19,22 @@ export async function DELETE(
 }
 
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params; 
     await connectToDatabase();
-    const body = await req.json();
+    
+    const body = await request.json(); 
 
-    const updatedProduct = await Product.findByIdAndUpdate(params.id, body, {
+    const updatedProduct = await Product.findByIdAndUpdate(id, body, {
       new: true,
     });
+
+    if (!updatedProduct) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
 
     return NextResponse.json(updatedProduct, { status: 200 });
   } catch (error) {
