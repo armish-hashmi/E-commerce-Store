@@ -1,8 +1,34 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import ProductCard from '@/components/ui/ProductCard';
-import { MOCK_PRODUCTS } from '@/data/mockData';
 
 export default function WishlistPage() {
-  const wishlistItems = MOCK_PRODUCTS.slice(0, 2);
+  const [wishlistItems, setWishlistItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const savedWishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+    setWishlistItems(savedWishlist);
+    setLoading(false);
+
+    const handleStorageChange = () => {
+      const updated = JSON.parse(localStorage.getItem('wishlist') || '[]');
+      setWishlistItems(updated);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-20 text-center text-gray-500">
+        Loading saved items...
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -20,6 +46,12 @@ export default function WishlistPage() {
       ) : (
         <div className="py-20 text-center">
           <p className="text-gray-500">Your wishlist is currently empty.</p>
+          <Link
+            href="/products"
+            className="mt-4 inline-block rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+          >
+            Explore Products
+          </Link>
         </div>
       )}
     </div>

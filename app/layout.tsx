@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'AuraStore',
+  title: 'OnlineStore',
   description: 'Modern E-Commerce Store',
 };
 
