@@ -2,20 +2,55 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
     const newErrors: { email?: string; password?: string } = {};
 
     if (!email.includes('@')) newErrors.email = 'Please enter a valid email address.';
     if (password.length < 6) newErrors.password = 'Password must be at least 6 characters.';
 
-    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrors({ general: data.error || 'Failed to log in' });
+        return;
+      }
+
+      if (data.role === 'admin') {
+        router.push('/admin');
+      } else {
+        router.push('/');
+      }
+      router.refresh();
+    } catch (err) {
+      setErrors({ general: 'Network error. Please try again later.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -26,11 +61,22 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-gray-500">Log in to manage your orders and cart.</p>
         </div>
 
+        {errors.general && (
+          <div className="rounded-lg bg-red-50 p-3 text-xs font-medium text-red-600 border border-red-200">
+            {errors.general}
+          </div>
+        )}
+
         <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Email Address</label>
+            <label htmlFor="login-email" className="block text-sm font-medium text-gray-700">
+              Email Address
+            </label>
             <input
+              id="login-email"
+              name="email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
@@ -39,9 +85,14 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>
+            <label htmlFor="login-password" className="block text-sm font-medium text-gray-700">
+              Password
+            </label>
             <input
+              id="login-password"
+              name="password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
@@ -51,9 +102,10 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full rounded-lg bg-indigo-600 py-2.5 font-semibold text-white shadow hover:bg-indigo-700"
+            disabled={loading}
+            className="w-full rounded-lg bg-indigo-600 py-2.5 font-semibold text-white shadow hover:bg-indigo-700 transition disabled:opacity-50"
           >
-            Sign In
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 

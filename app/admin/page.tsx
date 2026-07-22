@@ -29,7 +29,7 @@ export default function AdminDashboard() {
     }
   };
 
-  if (loading) return <div className="p-8">Loading products...</div>;
+  if (loading) return <div className="p-8">Your Store Products</div>;
 
   return (
     <div className="p-8">

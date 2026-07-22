@@ -90,7 +90,7 @@ export default function Navbar() {
             href="/wishlist"
             className={`text-sm transition-colors ${
               pathname === '/wishlist'
-                ? 'text-indigo-600 font-semibold'
+                ? 'font-semibold text-indigo-600'
                 : 'text-gray-600 hover:text-indigo-600'
             }`}
           >
@@ -99,22 +99,17 @@ export default function Navbar() {
 
           <Link
             href="/cart"
-            className={`text-sm transition-colors ${
+            className={`text-sm transition-colors flex items-center ${
               pathname === '/cart'
-                ? 'text-indigo-600 font-semibold'
-                : 'text-gray-700 hover:text-indigo-600'
+                ? 'font-semibold text-indigo-600'
+                : 'text-gray-600 hover:text-indigo-600'
             }`}
           >
-            Cart{' '}
-            <span
-              className={`ml-1 rounded-full px-2 py-0.5 text-xs ${
-                pathname === '/cart' ? 'bg-white-600' : 'bg-blue-600'
-              }`}
-            >
+            Cart
+            <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-blue-600 px-2 py-0.5 text-xs font-semibold text-white">
               {cartCount}
             </span>
           </Link>
-
           <Link
             href="/login"
             className={`text-sm font-semibold transition-colors ${
@@ -126,7 +121,6 @@ export default function Navbar() {
             Log in
           </Link>
         </div>
-
         <button
           onClick={() => setIsOpen(!isOpen)}
           aria-label="Toggle Navigation Menu"
