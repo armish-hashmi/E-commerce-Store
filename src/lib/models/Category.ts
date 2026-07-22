@@ -1,9 +1,11 @@
-import mongoose, { Schema, model, models } from 'mongoose';
+import mongoose, { Schema, model, models, Document } from 'mongoose';
 
-export interface ICategory {
-  _id?: string;
+export interface ICategory extends Document {
   name: string;
   slug: string;
+  description?: string; 
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const CategorySchema = new Schema<ICategory>(
@@ -15,4 +17,5 @@ const CategorySchema = new Schema<ICategory>(
   { timestamps: true }
 );
 
-export const Category = models.Category || model<ICategory>('Category', CategorySchema);
+export const Category =
+  models.Category || model<ICategory>('Category', CategorySchema);
