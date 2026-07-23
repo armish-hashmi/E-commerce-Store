@@ -7,14 +7,18 @@ interface ICategory {
   name: string;
   slug: string;
   description?: string;
+  image?: string;
   createdAt: string;
 }
+
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500';
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<ICategory[]>([]);
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  
+  const [image, setImage] = useState('');
+  const [editingCategory, setEditingCategory] = useState<ICategory | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,27 +55,47 @@ export default function AdminCategoriesPage() {
     setSubmitting(true);
 
     try {
-      const res = await fetch('/api/admin/categories', {
-        method: 'POST',
+      const url = editingCategory
+        ? `/api/admin/categories?id=${editingCategory._id}`
+        : '/api/admin/categories';
+      const method = editingCategory ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({ name, image }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to create category');
+        throw new Error(data.error || `Failed to ${editingCategory ? 'update' : 'create'} category`);
       }
 
-      setSuccess('Category added successfully!');
+      setSuccess(editingCategory ? 'Category updated successfully!' : 'Category added successfully!');
       setName('');
-      setDescription('');
-      fetchCategories(); 
+      setImage('');
+      setEditingCategory(null);
+      fetchCategories();
     } catch (err: any) {
       setError(err.message);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleEdit = (category: ICategory) => {
+    setEditingCategory(category);
+    setName(category.name);
+    setImage(category.image || '');
+    setError(null);
+    setSuccess(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCategory(null);
+    setName('');
+    setImage('');
   };
 
   const handleDelete = async (id: string) => {
@@ -115,7 +139,9 @@ export default function AdminCategoriesPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-1 bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-fit">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Add New Category</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">
+            {editingCategory ? 'Edit Category' : 'Add New Category'}
+          </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="category-name" className="block text-sm font-medium text-gray-700">
@@ -133,26 +159,42 @@ export default function AdminCategoriesPage() {
             </div>
 
             <div>
-              <label htmlFor="category-description" className="block text-sm font-medium text-gray-700">
-                Description
+              <label htmlFor="category-image" className="block text-sm font-medium text-gray-700">
+                Image URL
               </label>
-              <textarea
-                id="category-description"
-                name="category-description"
-                rows={3}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+              <input
+                id="category-image"
+                name="category-image"
+                type="url"
+                value={image}
+                onChange={(e) => setImage(e.target.value)}
+                placeholder="https://..."
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
-            >
-              {submitting ? 'Saving...' : 'Add Category'}
-            </button>
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+              >
+                {submitting
+                  ? 'Saving...'
+                  : editingCategory
+                  ? 'Update Category'
+                  : 'Add Category'}
+              </button>
+              {editingCategory && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
           </form>
         </div>
 
@@ -174,19 +216,28 @@ export default function AdminCategoriesPage() {
                   <tr>
                     <th className="px-6 py-3">Name</th>
                     <th className="px-6 py-3">Slug</th>
-                    <th className="px-6 py-3">Description</th>
                     <th className="px-6 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {categories.map((category) => (
                     <tr key={category._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 font-medium text-gray-900">{category.name}</td>
-                      <td className="px-6 py-4 font-mono text-xs text-gray-500">{category.slug}</td>
-                      <td className="px-6 py-4 text-gray-500">
-                        {category.description || '—'}
+                      <td className="px-6 py-4 flex items-center gap-3 font-medium text-gray-900">
+                        <img
+                          src={category.image || FALLBACK_IMAGE}
+                          alt={category.name}
+                          className="h-8 w-8 rounded-lg object-cover"
+                        />
+                        {category.name}
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-4 font-mono text-xs text-gray-500">{category.slug}</td>
+                      <td className="px-6 py-4 text-right space-x-3">
+                        <button
+                          onClick={() => handleEdit(category)}
+                          className="text-indigo-600 hover:text-indigo-800 font-medium text-xs"
+                        >
+                          Edit
+                        </button>
                         <button
                           onClick={() => handleDelete(category._id)}
                           className="text-red-600 hover:text-red-800 font-medium text-xs"

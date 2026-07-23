@@ -21,7 +21,7 @@ export default function ProductDetailPage({
   useEffect(() => {
     async function fetchProduct() {
       try {
-        const res = await fetch(`/api/products/${resolvedParams.id}`);
+        const res = await fetch(`/api/admin/products/${resolvedParams.id}`);
         if (res.ok) {
           const data = await res.json();
           if (data && data._id) {

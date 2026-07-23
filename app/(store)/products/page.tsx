@@ -1,13 +1,68 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ProductCard from '@/components/ui/ProductCard';
-import { MOCK_PRODUCTS } from '@/data/mockData';
+import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '@/data/mockData';
 
-export default function ProductListingPage() {
+const FALLBACK_CATEGORY_NAMES = ['Electronics', 'Accessories', 'Furniture'];
+
+function ProductListingContent() {
+  const searchParams = useSearchParams();
+  const categoryFromUrl = searchParams.get('category');
+
   const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl || 'All');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [products, setProducts] = useState<any[]>(MOCK_PRODUCTS);
+  const [categoryNames, setCategoryNames] = useState<string[]>(
+    MOCK_CATEGORIES.map((c) => c.name)
+  );
+
+  useEffect(() => {
+    setSelectedCategory(categoryFromUrl || 'All');
+  }, [categoryFromUrl]);
+
+  useEffect(() => {
+    async function fetchProducts() {
+      try {
+        const res = await fetch('/api/admin/products');
+        if (res.ok) {
+          const dbProducts = await res.json();
+          if (Array.isArray(dbProducts) && dbProducts.length > 0) {
+            const mapped = dbProducts.map((p: any) => ({ ...p, id: p._id }));
+            setProducts(mapped);
+            return;
+          }
+        }
+        setProducts(MOCK_PRODUCTS);
+      } catch (error) {
+        console.error('Failed to fetch products from DB, falling back to mock data', error);
+        setProducts(MOCK_PRODUCTS);
+      }
+    }
+
+    async function fetchCategories() {
+      try {
+        const res = await fetch('/api/admin/categories');
+        if (res.ok) {
+          const data = await res.json();
+          const dbCategories = data.categories || [];
+          if (dbCategories.length > 0) {
+            setCategoryNames(dbCategories.map((c: any) => c.name));
+            return;
+          }
+        }
+        setCategoryNames(FALLBACK_CATEGORY_NAMES);
+      } catch (error) {
+        console.error('Failed to fetch categories from DB, falling back to mock data', error);
+        setCategoryNames(FALLBACK_CATEGORY_NAMES);
+      }
+    }
+
+    fetchProducts();
+    fetchCategories();
+  }, []);
 
   const triggerToast = (itemTitle: string) => {
     setToastMessage(`"${itemTitle}" added to cart!`);
@@ -44,7 +99,7 @@ export default function ProductListingPage() {
     triggerToast(product.name);
   };
 
-  const filtered = MOCK_PRODUCTS.filter((p) => {
+  const filtered = products.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
     return matchesSearch && matchesCategory;
@@ -73,11 +128,11 @@ export default function ProductListingPage() {
         />
 
         <div className="flex items-center space-x-2 overflow-x-auto pb-2 sm:pb-0">
-          {['All', 'Electronics', 'Accessories', 'Furniture'].map((cat) => (
+          {['All', ...categoryNames].map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition whitespace-nowrap ${
                 selectedCategory === cat
                   ? 'bg-indigo-600 text-white'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -105,3 +160,16 @@ export default function ProductListingPage() {
     </div>
   );
 }
+
+export default function ProductListingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-7xl px-4 py-24 text-center text-gray-500">Loading products...</div>
+      }
+    >
+      <ProductListingContent />
+    </Suspense>
+  );
+}
+

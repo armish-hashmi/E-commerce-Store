@@ -1,7 +1,42 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { MOCK_CATEGORIES } from '@/data/mockData';
 
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=500';
+
 export default function CategoriesPage() {
+  const [categories, setCategories] = useState<any[]>(MOCK_CATEGORIES);
+
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const res = await fetch('/api/admin/categories');
+        if (res.ok) {
+          const data = await res.json();
+          const dbCategories = data.categories || [];
+          if (dbCategories.length > 0) {
+            const mapped = dbCategories.map((c: any) => ({
+              id: c._id,
+              name: c.name,
+              image: c.image || FALLBACK_IMAGE,
+              itemCount: c.itemCount,
+            }));
+            setCategories(mapped);
+            return;
+          }
+        }
+        setCategories(MOCK_CATEGORIES);
+      } catch (error) {
+        console.error('Failed to fetch categories from DB, falling back to mock data', error);
+        setCategories(MOCK_CATEGORIES);
+      }
+    }
+
+    fetchCategories();
+  }, []);
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="text-center">
@@ -10,10 +45,10 @@ export default function CategoriesPage() {
       </div>
 
       <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-        {MOCK_CATEGORIES.map((cat) => (
+        {categories.map((cat) => (
           <Link
             key={cat.id}
-            href={`/products?category=${cat.name}`}
+            href={`/products?category=${encodeURIComponent(cat.name)}`}
             className="group relative overflow-hidden rounded-2xl bg-gray-900 shadow-md transition hover:shadow-xl"
           >
             <img
@@ -23,7 +58,9 @@ export default function CategoriesPage() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-6 flex flex-col justify-end">
               <h2 className="text-2xl font-bold text-white">{cat.name}</h2>
-              <p className="mt-1 text-sm text-gray-300">{cat.itemCount} Products Available</p>
+              <p className="mt-1 text-sm text-gray-300">
+                {cat.itemCount != null ? `${cat.itemCount} Products Available` : 'Explore Collection'}
+              </p>
             </div>
           </Link>
         ))}

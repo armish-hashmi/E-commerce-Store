@@ -1,82 +1,165 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useState, useEffect } from 'react';
 
-export default function AdminDashboard() {
+interface Product {
+  _id: string;
+  name: string;
+  price: number;
+  category: string;
+  image: string;
+  description?: string;
+}
 
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+interface CategoryItem {
+  _id: string;
+  name: string;
+  slug: string;
+  image?: string;
+}
 
-  const fetchProducts = async () => {
-    const res = await fetch('/api/products');
-    const data = await res.json();
-    setProducts(data);
-    setLoading(false);
-  };
+export default function AdminDashboardPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingCategories, setLoadingCategories] = useState(true);
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch('/api/admin/products');
+      const contentType = res.headers.get('content-type') || '';
 
-    const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+      if (!res.ok || !contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error(
+          `Expected JSON from /api/admin/products but got status ${res.status}. Response body:`,
+          text.slice(0, 500)
+        );
+        setProducts([]);
+        return;
+      }
 
-    if (res.ok) {
-      setProducts(products.filter((p: any) => p._id !== id));
+      const data = await res.json();
+      setProducts(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingProducts(false);
     }
   };
 
-  if (loading) return <div className="p-8">Your Store Products</div>;
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/api/admin/categories');
+      if (!res.ok) throw new Error('Failed to load categories');
+      const data = await res.json();
+      setCategories(data.categories || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
 
   return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Admin Product Management</h1>
-        <Link
-          href="/admin/products/new"
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700"
-        >
-          + Add New Product
-        </Link>
+    <div className="space-y-10">
+      <div>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Dashboard</h1>
+            <p className="text-sm text-gray-500">All products currently live on the store.</p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-gray-600">
+              <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500">
+                <tr>
+                  <th className="px-6 py-3">Product</th>
+                  <th className="px-6 py-3">Category</th>
+                  <th className="px-6 py-3">Price</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {loadingProducts ? (
+                  <tr>
+                    <td colSpan={3} className="text-center py-8">Loading products...</td>
+                  </tr>
+                ) : products.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="text-center py-8">No products found.</td>
+                  </tr>
+                ) : (
+                  products.map((product) => (
+                    <tr key={product._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 flex items-center gap-3">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="h-10 w-10 rounded-lg object-cover"
+                        />
+                        <span className="font-semibold text-gray-900">{product.name}</span>
+                      </td>
+                      <td className="px-6 py-4">{product.category}</td>
+                      <td className="px-6 py-4 font-medium text-gray-900">${product.price.toFixed(2)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-        <table className="w-full text-left text-sm text-gray-500">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-700">
-            <tr>
-              <th className="px-6 py-3">Product Name</th>
-              <th className="px-6 py-3">Category</th>
-              <th className="px-6 py-3">Price</th>
-              <th className="px-6 py-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 bg-white">
-            {products.map((product: any) => (
-              <tr key={product._id}>
-                <td className="px-6 py-4 font-medium text-gray-900">{product.name}</td>
-                <td className="px-6 py-4">{product.category}</td>
-                <td className="px-6 py-4">${product.price}</td>
-                <td className="px-6 py-4 text-right space-x-3">
-                  <Link
-                    href={`/admin/products/${product._id}`}
-                    className="text-indigo-600 hover:underline"
-                  >
-                    Edit
-                  </Link>
-                  <button
-                    onClick={() => handleDelete(product._id)}
-                    className="text-red-600 hover:underline"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div>
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900">Categories</h2>
+          <p className="text-sm text-gray-500">All categories currently live on the store.</p>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-gray-600">
+              <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500">
+                <tr>
+                  <th className="px-6 py-3">Category</th>
+                  <th className="px-6 py-3">Slug</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {loadingCategories ? (
+                  <tr>
+                    <td colSpan={2} className="text-center py-8">Loading categories...</td>
+                  </tr>
+                ) : categories.length === 0 ? (
+                  <tr>
+                    <td colSpan={2} className="text-center py-8">No categories found.</td>
+                  </tr>
+                ) : (
+                  categories.map((category) => (
+                    <tr key={category._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 flex items-center gap-3">
+                        <img
+                          src={category.image}
+                          alt={category.name}
+                          className="h-8 w-8 rounded-lg object-cover"
+                        />
+                        <span className="font-semibold text-gray-900">{category.name}</span>
+                      </td>
+                      <td className="px-6 py-4 font-mono text-xs text-gray-500">{category.slug}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );

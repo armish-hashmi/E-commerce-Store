@@ -16,6 +16,7 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isSeeding, setIsSeeding] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -32,6 +33,18 @@ export default function AdminProductsPage() {
   const fetchProducts = async () => {
     try {
       const res = await fetch('/api/admin/products');
+      const contentType = res.headers.get('content-type') || '';
+
+      if (!res.ok || !contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error(
+          `Expected JSON from /api/products but got status ${res.status}. Response body:`,
+          text.slice(0, 500)
+        );
+        setProducts([]);
+        return;
+      }
+
       const data = await res.json();
       setProducts(data);
     } catch (err) {
@@ -66,7 +79,7 @@ export default function AdminProductsPage() {
     };
 
     const url = editingProduct
-      ? `/api/products/${editingProduct._id}`
+      ? `/api/admin/products/${editingProduct._id}`
       : '/api/admin/products';
 
     const method = editingProduct ? 'PUT' : 'POST';
@@ -83,10 +96,29 @@ export default function AdminProductsPage() {
     }
   };
 
+  const handleSeedMockProducts = async () => {
+    setIsSeeding(true);
+    try {
+      const res = await fetch('/api/admin/products/seed', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || 'Process complete.');
+        fetchProducts();
+      } else {
+        alert(data.error || 'Failed to get products.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to seed products.');
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this product?')) return;
 
-    const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/admin/products/${id}`, { method: 'DELETE' });
     if (res.ok) {
       setProducts(products.filter((p) => p._id !== id));
     }
@@ -99,12 +131,21 @@ export default function AdminProductsPage() {
           <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Products</h1>
           <p className="text-sm text-gray-500">Manage, edit, and create your store items.</p>
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-indigo-700 transition"
-        >
-          + Add New Product
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleSeedMockProducts}
+            disabled={isSeeding}
+            className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition disabled:opacity-50"
+          >
+            {isSeeding ? 'Getting Products...' : 'Get Store Products'}
+          </button>
+          <button
+            onClick={() => handleOpenModal()}
+            className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-indigo-700 transition"
+          >
+            + Add New Product
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -175,7 +216,7 @@ export default function AdminProductsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700">Price ($)</label>
+                  <label className="block text-xs font-semibold text-gray-700">Price </label>
                   <input
                     type="number"
                     step="0.01"
@@ -197,9 +238,8 @@ export default function AdminProductsPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700">Image URL</label>
+                <label className="block text-xs font-semibold text-gray-700">Image </label>
                 <input
-                  type="url"
                   required
                   value={formData.image}
                   onChange={(e) => setFormData({ ...formData, image: e.target.value })}

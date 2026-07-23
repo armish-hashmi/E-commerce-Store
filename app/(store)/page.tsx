@@ -1,14 +1,65 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import ProductCard from '@/components/ui/ProductCard';
 import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '@/data/mockData';
 
+const FALLBACK_CATEGORY_IMAGE = 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=500';
+
 export default function HomePage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [products, setProducts] = useState<any[]>(MOCK_PRODUCTS);
+  const [categories, setCategories] = useState<any[]>(MOCK_CATEGORIES);
 
-  const featured = MOCK_PRODUCTS.filter((p) => p.isFeatured);
+  useEffect(() => {
+    async function fetchProducts() {
+      try {
+        const res = await fetch('/api/admin/products');
+        if (res.ok) {
+          const dbProducts = await res.json();
+          if (Array.isArray(dbProducts) && dbProducts.length > 0) {
+            const mapped = dbProducts.map((p: any) => ({ ...p, id: p._id }));
+            setProducts(mapped);
+            return;
+          }
+        }
+        setProducts(MOCK_PRODUCTS);
+      } catch (error) {
+        console.error('Failed to fetch products from DB, falling back to mock data', error);
+        setProducts(MOCK_PRODUCTS);
+      }
+    }
+
+    async function fetchCategories() {
+      try {
+        const res = await fetch('/api/admin/categories');
+        if (res.ok) {
+          const data = await res.json();
+          const dbCategories = data.categories || [];
+          if (dbCategories.length > 0) {
+            const mapped = dbCategories.map((c: any) => ({
+              id: c._id,
+              name: c.name,
+              image: c.image || FALLBACK_CATEGORY_IMAGE,
+              itemCount: c.itemCount,
+            }));
+            setCategories(mapped);
+            return;
+          }
+        }
+        setCategories(MOCK_CATEGORIES);
+      } catch (error) {
+        console.error('Failed to fetch categories from DB, falling back to mock data', error);
+        setCategories(MOCK_CATEGORIES);
+      }
+    }
+
+    fetchProducts();
+    fetchCategories();
+  }, []);
+
+  const featured = products;
 
   const triggerToast = (itemTitle: string) => {
     setToastMessage(`"${itemTitle}" added to cart!`);
@@ -86,7 +137,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <h2 className="text-2xl font-bold tracking-tight text-gray-900">Featured Categories</h2>
         <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3">
-          {MOCK_CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <Link
               key={cat.id}
               href={`/products?category=${encodeURIComponent(cat.name)}`}
@@ -99,7 +150,9 @@ export default function HomePage() {
               />
               <div className="absolute inset-0 flex flex-col justify-end p-6 bg-gradient-to-t from-black/70 via-black/20 to-transparent">
                 <h3 className="text-xl font-bold text-white">{cat.name}</h3>
-                <p className="text-sm text-gray-300">{cat.itemCount} Items</p>
+                <p className="text-sm text-gray-300">
+                  {cat.itemCount != null ? `${cat.itemCount} Items` : 'Explore Collection'}
+                </p>
               </div>
             </Link>
           ))}

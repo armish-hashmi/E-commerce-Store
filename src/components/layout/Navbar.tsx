@@ -2,14 +2,17 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [wishlistCount, setWishlistCount] = useState(0);
   const [cartCount, setCartCount] = useState(0);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const pathname = usePathname();
+  const router = useRouter();
   const navRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,6 +31,20 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
+    async function checkSession() {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        setIsLoggedIn(!!data.user);
+      } catch (err) {
+        setIsLoggedIn(false);
+      }
+    }
+
+    checkSession();
+  }, [pathname]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (navRef.current && !navRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -42,6 +59,21 @@ export default function Navbar() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isOpen]);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (err) {
+      console.error('Failed to log out', err);
+    } finally {
+      setIsLoggedIn(false);
+      setLoggingOut(false);
+      setIsOpen(false);
+      router.push('/');
+      router.refresh();
+    }
+  };
 
   const getLinkClass = (path: string) => {
     const isActive = pathname === path;
@@ -110,16 +142,27 @@ export default function Navbar() {
               {cartCount}
             </span>
           </Link>
-          <Link
-            href="/login"
-            className={`text-sm font-semibold transition-colors ${
-              pathname === '/login'
-                ? 'text-indigo-600'
-                : 'text-gray-700 hover:text-indigo-600'
-            }`}
-          >
-            Log in
-          </Link>
+
+          {isLoggedIn ? (
+            <button
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="text-sm font-semibold text-gray-700 hover:text-indigo-600 transition-colors disabled:opacity-50"
+            >
+              {loggingOut ? 'Logging out...' : 'Logout'}
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              className={`text-sm font-semibold transition-colors ${
+                pathname === '/login'
+                  ? 'text-indigo-600'
+                  : 'text-gray-700 hover:text-indigo-600'
+              }`}
+            >
+              Log in
+            </Link>
+          )}
         </div>
         <button
           onClick={() => setIsOpen(!isOpen)}
@@ -157,13 +200,23 @@ export default function Navbar() {
             Wishlist ({wishlistCount})
           </Link>
           <div className="pt-3 border-t border-gray-100">
-            <Link
-              href="/login"
-              onClick={() => setIsOpen(false)}
-              className="block text-center rounded-lg bg-indigo-600 py-2.5 text-white font-medium hover:bg-indigo-700 transition"
-            >
-              Log in
-            </Link>
+            {isLoggedIn ? (
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="block w-full text-center rounded-lg bg-indigo-600 py-2.5 text-white font-medium hover:bg-indigo-700 transition disabled:opacity-50"
+              >
+                {loggingOut ? 'Logging out...' : 'Logout'}
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setIsOpen(false)}
+                className="block text-center rounded-lg bg-indigo-600 py-2.5 text-white font-medium hover:bg-indigo-700 transition"
+              >
+                Log in
+              </Link>
+            )}
           </div>
         </div>
       )}
