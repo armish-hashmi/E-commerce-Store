@@ -7,6 +7,8 @@ export default function CartPage() {
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [showBanner, setShowBanner] = useState(false);
   const [bannerMessage, setBannerMessage] = useState('Cart updated!');
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadCart = () => {
@@ -58,6 +60,30 @@ export default function CartPage() {
     triggerBanner('Item removed from cart');
   };
 
+  const handleCheckout = async () => {
+    setCheckoutError(null);
+    setCheckingOut(true);
+
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cartItems }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || 'Failed to start checkout');
+      }
+
+      window.location.href = data.url;
+    } catch (err: any) {
+      setCheckoutError(err.message || 'Something went wrong. Please try again.');
+      setCheckingOut(false);
+    }
+  };
+
   const subtotal = cartItems.reduce(
     (acc, item) => acc + (item.price || 0) * (item.quantity || 1),
     0
@@ -101,10 +127,7 @@ export default function CartPage() {
                 >
                   <div className="flex items-center gap-4 sm:block">
                     <img
-                      src={
-                        item.image ||
-                        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500'
-                      }
+                      src={ item.image }
                       alt={item.name}
                       className="h-20 w-20 sm:h-24 sm:w-24 rounded-lg object-cover flex-shrink-0"
                     />
@@ -186,8 +209,18 @@ export default function CartPage() {
               <span>${total.toFixed(2)}</span>
             </div>
 
-            <button className="mt-6 w-full rounded-lg bg-indigo-600 py-3 sm:py-3.5 text-white font-semibold text-sm sm:text-base shadow hover:bg-indigo-700 active:scale-[0.99] transition">
-              Proceed to Checkout
+            {checkoutError && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {checkoutError}
+              </div>
+            )}
+
+            <button
+              onClick={handleCheckout}
+              disabled={checkingOut}
+              className="mt-6 w-full rounded-lg bg-indigo-600 py-3 sm:py-3.5 text-white font-semibold text-sm sm:text-base shadow hover:bg-indigo-700 active:scale-[0.99] transition disabled:opacity-50"
+            >
+              {checkingOut ? 'Redirecting to checkout...' : 'Proceed to Checkout'}
             </button>
           </section>
         </div>
