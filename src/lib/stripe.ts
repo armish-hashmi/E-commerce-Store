@@ -9,7 +9,7 @@ export function getStripe(): Stripe {
     }
     stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
       httpClient: Stripe.createFetchHttpClient(),
-      apiVersion: '2024-06-20',
+      apiVersion: '2026-06-24.dahlia',
     });
   }
   return stripeInstance;
