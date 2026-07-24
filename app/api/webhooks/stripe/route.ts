@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { getStripe } from '@/lib/stripe';
 import { connectToDatabase } from '@/lib/db';
 import { Order } from '@/lib/models/Order';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
 
 export async function POST(req: NextRequest) {
+  const stripe = getStripe();
   const body = await req.text();
   const signature = req.headers.get('stripe-signature');
 
   if (!signature) {
-    return NextResponse.json({ error: 'Missing Stripe ' }, { status: 400 });
+    return NextResponse.json({ error: 'Missing Stripe signature' }, { status: 400 });
   }
 
   let event: Stripe.Event;
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err: any) {
-    console.error('verification failed:', err.message);
+    console.error('Stripe webhook signature verification failed:', err.message);
     return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
   }
 
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
         });
       }
     } catch (err) {
-      console.error('Failed to save order :', err);
+      console.error('Failed to save order from Stripe webhook:', err);
       return NextResponse.json({ error: 'Failed to process order' }, { status: 500 });
     }
   }
