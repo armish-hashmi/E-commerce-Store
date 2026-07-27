@@ -174,7 +174,7 @@ export const MOCK_PRODUCTS: Product[] = [
 ];
 
 export const MOCK_CATEGORIES: Category[] = [
-  { id: '1', name: 'Electronics', itemCount: 120, image: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=500' },
-  { id: '2', name: 'Accessories', itemCount: 85, image: 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=500' },
-  { id: '3', name: 'Furniture', itemCount: 45, image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500' },
+  { id: '1', name: 'Electronics', itemCount: 120 , image:'https://i.sstatic.net/mwFzF.png' },
+  { id: '2', name: 'Accessories', itemCount: 85 , image:'https://i.sstatic.net/mwFzF.png'},
+  { id: '3', name: 'Furniture', itemCount: 45 , image:'https://i.sstatic.net/mwFzF.png'},
 ];

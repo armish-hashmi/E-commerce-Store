@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { MOCK_CATEGORIES } from '@/data/mockData';
 
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=500';
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<any[]>(MOCK_CATEGORIES);
@@ -20,7 +19,7 @@ export default function CategoriesPage() {
             const mapped = dbCategories.map((c: any) => ({
               id: c._id,
               name: c.name,
-              image: c.image || FALLBACK_IMAGE,
+              image: c.image ,
               itemCount: c.itemCount,
             }));
             setCategories(mapped);

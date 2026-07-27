@@ -13,6 +13,7 @@ function CheckoutSuccessContent() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Payment succeeded (we're only on this page because Stripe redirected here) — clear the local cart.
     localStorage.setItem('cart', JSON.stringify([]));
     window.dispatchEvent(new Event('storage'));
 
@@ -24,7 +25,20 @@ function CheckoutSuccessContent() {
 
       try {
         const res = await fetch(`/api/checkout/session?session_id=${sessionId}`);
-        const data = await res.json();
+        const rawText = await res.text();
+
+        if (!rawText) {
+          console.error('/api/checkout/session returned an empty response body. Status:', res.status);
+          throw new Error(`Server returned an empty response (status ${res.status}). Check your server logs.`);
+        }
+
+        let data: any;
+        try {
+          data = JSON.parse(rawText);
+        } catch (parseErr) {
+          console.error('/api/checkout/session returned non-JSON body:', rawText.slice(0, 300));
+          throw new Error('Server returned an unexpected response. Check your server logs for the actual error.');
+        }
 
         if (!res.ok) {
           throw new Error(data.error || 'Failed to load order details');

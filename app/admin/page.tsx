@@ -18,15 +18,26 @@ interface CategoryItem {
   image?: string;
 }
 
+interface Order {
+  _id: string;
+  totalAmount: number;
+  status: string;
+  createdAt?: string;
+}
+
 export default function AdminDashboardPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [loadingOrders, setLoadingOrders] = useState(true);
 
   useEffect(() => {
     fetchProducts();
     fetchCategories();
+    fetchOrders();
   }, []);
 
   const fetchProducts = async () => {
@@ -66,17 +77,69 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const fetchOrders = async () => {
+    try {
+      const res = await fetch('/api/orders');
+      if (!res.ok) throw new Error('Failed to load orders');
+      const data = await res.json();
+      setOrders(data.orders || data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+  const totalOrders = orders.length;
+  const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
   return (
     <div className="space-y-10">
       <div>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Dashboard</h1>
-            <p className="text-sm text-gray-500">All products currently live on the store.</p>
+            <p className="text-sm text-gray-500">Store performance overview and catalog listings.</p>
           </div>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Revenue</p>
+            <p className="text-2xl font-extrabold text-indigo-600 mt-2">
+              {loadingOrders ? '...' : `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            </p>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Orders</p>
+            <p className="text-2xl font-extrabold text-gray-900 mt-2">
+              {loadingOrders ? '...' : totalOrders}
+            </p>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Avg. Order Value</p>
+            <p className="text-2xl font-extrabold text-gray-900 mt-2">
+              {loadingOrders ? '...' : `$${avgOrderValue.toFixed(2)}`}
+            </p>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Products</p>
+            <p className="text-2xl font-extrabold text-gray-900 mt-2">
+              {loadingProducts ? '...' : products.length}
+            </p>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900">Products</h2>
+          <p className="text-sm text-gray-500">All products currently live on the store.</p>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden mb-10">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-gray-600">
               <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500">
@@ -115,9 +178,7 @@ export default function AdminDashboardPage() {
             </table>
           </div>
         </div>
-      </div>
 
-      <div>
         <div className="mb-4">
           <h2 className="text-xl font-bold text-gray-900">Categories</h2>
           <p className="text-sm text-gray-500">All categories currently live on the store.</p>
@@ -145,11 +206,13 @@ export default function AdminDashboardPage() {
                   categories.map((category) => (
                     <tr key={category._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 flex items-center gap-3">
-                        <img
-                          src={category.image}
-                          alt={category.name}
-                          className="h-8 w-8 rounded-lg object-cover"
-                        />
+                        {category.image && (
+                          <img
+                            src={category.image}
+                            alt={category.name}
+                            className="h-8 w-8 rounded-lg object-cover"
+                          />
+                        )}
                         <span className="font-semibold text-gray-900">{category.name}</span>
                       </td>
                       <td className="px-6 py-4 font-mono text-xs text-gray-500">{category.slug}</td>

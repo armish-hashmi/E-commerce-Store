@@ -5,7 +5,6 @@ import Link from 'next/link';
 import ProductCard from '@/components/ui/ProductCard';
 import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '@/data/mockData';
 
-const FALLBACK_CATEGORY_IMAGE = 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=500';
 
 export default function HomePage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -41,7 +40,7 @@ export default function HomePage() {
             const mapped = dbCategories.map((c: any) => ({
               id: c._id,
               name: c.name,
-              image: c.image || FALLBACK_CATEGORY_IMAGE,
+              image: c.image ,
               itemCount: c.itemCount,
             }));
             setCategories(mapped);

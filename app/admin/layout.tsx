@@ -2,19 +2,25 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
-const navLinkClass =
-  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition';
+const baseNavLinkClass =
+  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition';
+const activeNavLinkClass = 'bg-indigo-100 text-indigo-700';
+const inactiveNavLinkClass = 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600';
+
 const secondaryLinkClass =
   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-500 hover:bg-gray-100 transition';
+
 const logoutButtonClass =
   'flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-red-600 hover:bg-red-50 transition text-left';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  
   const closeMenu = () => setIsMenuOpen(false);
 
   const handleLogout = async () => {
@@ -30,30 +36,58 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   };
 
+  const isActive = (path: string) => {
+    if (path === '/admin') return pathname === '/admin';
+    return pathname.startsWith(path);
+  };
+
   const NavLinks = () => (
-    <nav className="space-y-1">
-      <Link href="/admin" onClick={closeMenu} className={navLinkClass}>
-        Dashboard
-      </Link>
-      <Link href="/admin/products" onClick={closeMenu} className={navLinkClass}>
-        Products Management
-      </Link>
-      <Link href="/admin/categories" onClick={closeMenu} className={navLinkClass}>
-        Categories
-      </Link>
-      <hr className="my-4 border-gray-200" />
-      <Link href="/" onClick={closeMenu} className={secondaryLinkClass}>
-        Back to Store
-      </Link>
-      <button
-        type="button"
-        onClick={handleLogout}
-        disabled={loggingOut}
-        className={`${logoutButtonClass} disabled:opacity-50`}
-      >
-        {loggingOut ? 'Logging out...' : 'Logout'}
-      </button>
-    </nav>
+    <div className="flex flex-col h-full">
+      <nav className="space-y-1">
+        <Link
+          href="/admin"
+          onClick={closeMenu}
+          className={`${baseNavLinkClass} ${isActive('/admin') && pathname === '/admin' ? activeNavLinkClass : inactiveNavLinkClass}`}
+        >
+          Dashboard
+        </Link>
+        <Link
+          href="/admin/orders"
+          onClick={closeMenu}
+          className={`${baseNavLinkClass} ${isActive('/admin/orders') ? activeNavLinkClass : inactiveNavLinkClass}`}
+        >
+          Orders Management
+        </Link>
+        <Link
+          href="/admin/products"
+          onClick={closeMenu}
+          className={`${baseNavLinkClass} ${isActive('/admin/products') ? activeNavLinkClass : inactiveNavLinkClass}`}
+        >
+          Products Management
+        </Link>
+        <Link
+          href="/admin/categories"
+          onClick={closeMenu}
+          className={`${baseNavLinkClass} ${isActive('/admin/categories') ? activeNavLinkClass : inactiveNavLinkClass}`}
+        >
+          Categories
+        </Link>
+      </nav>
+
+      <div className="mt-auto pt-4 space-y-1 border-t border-gray-200">
+        <Link href="/" onClick={closeMenu} className={secondaryLinkClass}>
+          Back to Store
+        </Link>
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className={`${logoutButtonClass} disabled:opacity-50`}
+        >
+          {loggingOut ? 'Logging out...' : 'Logout'}
+        </button>
+      </div>
+    </div>
   );
 
   return (
@@ -84,7 +118,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             onClick={closeMenu}
             aria-hidden="true"
           />
-          <aside className="relative w-64 max-w-[80%] bg-white h-full p-6 shadow-xl overflow-y-auto">
+          <aside className="relative w-64 max-w-[80%] bg-white h-full p-6 shadow-xl overflow-y-auto flex flex-col">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">

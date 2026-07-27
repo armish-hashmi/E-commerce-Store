@@ -38,6 +38,10 @@ export async function POST(req: NextRequest) {
       if (!existing) {
         await Order.create({
           stripeSessionId: fullSession.id,
+          paymentIntentId:
+            typeof fullSession.payment_intent === 'string'
+              ? fullSession.payment_intent
+              : fullSession.payment_intent?.id,
           customerEmail: fullSession.customer_details?.email || '',
           amountTotal: (fullSession.amount_total || 0) / 100,
           currency: fullSession.currency,

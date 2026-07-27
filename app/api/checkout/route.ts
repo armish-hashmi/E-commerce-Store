@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
+import { getSession } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,14 +35,17 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    const session = await stripe.checkout.sessions.create({
+    const authSession = await getSession();
+
+    const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items,
+      customer_email: authSession?.email,
       shipping_options: [
         {
           shipping_rate_data: {
             type: 'fixed_amount',
-            fixed_amount: { amount: 1500, currency: 'usd' }, 
+            fixed_amount: { amount: 1500, currency: 'usd' }, // $15.00 flat shipping, matching your cart page
             display_name: 'Standard Shipping',
           },
         },
@@ -50,7 +54,7 @@ export async function POST(req: NextRequest) {
       cancel_url: `${origin}/cart`,
     });
 
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: checkoutSession.url });
   } catch (error: any) {
     console.error('Stripe checkout error:', error);
     return NextResponse.json(

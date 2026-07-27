@@ -12,10 +12,15 @@ const OrderItemSchema = new Schema(
 const OrderSchema = new Schema(
   {
     stripeSessionId: { type: String, required: true, unique: true },
+    paymentIntentId: { type: String },
     customerEmail: { type: String },
     amountTotal: { type: Number },
     currency: { type: String },
-    status: { type: String, default: 'paid' },
+    status: {
+      type: String,
+      enum: ['paid', 'accepted', 'rejected', 'refunded'],
+      default: 'paid',
+    },
     items: [OrderItemSchema],
   },
   { timestamps: true }

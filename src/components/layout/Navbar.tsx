@@ -9,6 +9,7 @@ export default function Navbar() {
   const [wishlistCount, setWishlistCount] = useState(0);
   const [cartCount, setCartCount] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
   const pathname = usePathname();
@@ -36,8 +37,10 @@ export default function Navbar() {
         const res = await fetch('/api/auth/me');
         const data = await res.json();
         setIsLoggedIn(!!data.user);
+        setIsAdmin(data.user?.role === 'admin');
       } catch (err) {
         setIsLoggedIn(false);
+        setIsAdmin(false);
       }
     }
 
@@ -68,6 +71,7 @@ export default function Navbar() {
       console.error('Failed to log out', err);
     } finally {
       setIsLoggedIn(false);
+      setIsAdmin(false);
       setLoggingOut(false);
       setIsOpen(false);
       router.push('/');
@@ -143,6 +147,32 @@ export default function Navbar() {
             </span>
           </Link>
 
+          {isLoggedIn && (
+            <Link
+              href="/orders"
+              className={`text-sm transition-colors ${
+                pathname === '/orders'
+                  ? 'font-semibold text-indigo-600'
+                  : 'text-gray-600 hover:text-indigo-600'
+              }`}
+            >
+              My Orders
+            </Link>
+          )}
+
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={`text-sm font-semibold transition-colors ${
+                pathname.startsWith('/admin')
+                  ? 'text-indigo-600'
+                  : 'text-gray-700 hover:text-indigo-600'
+              }`}
+            >
+              Admin Panel
+            </Link>
+          )}
+
           {isLoggedIn ? (
             <button
               onClick={handleLogout}
@@ -199,6 +229,16 @@ export default function Navbar() {
           <Link href="/wishlist" onClick={() => setIsOpen(false)} className={getMobileLinkClass('/wishlist')}>
             Wishlist ({wishlistCount})
           </Link>
+          {isLoggedIn && (
+            <Link href="/orders" onClick={() => setIsOpen(false)} className={getMobileLinkClass('/orders')}>
+              My Orders
+            </Link>
+          )}
+          {isAdmin && (
+            <Link href="/admin" onClick={() => setIsOpen(false)} className={getMobileLinkClass('/admin')}>
+              Admin Panel
+            </Link>
+          )}
           <div className="pt-3 border-t border-gray-100">
             {isLoggedIn ? (
               <button
