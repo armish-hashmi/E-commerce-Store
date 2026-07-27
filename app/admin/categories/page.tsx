@@ -223,7 +223,7 @@ export default function AdminCategoriesPage() {
                     <tr key={category._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 flex items-center gap-3 font-medium text-gray-900">
                         <img
-                          src={category.image || FALLBACK_IMAGE}
+                          src={category.image }
                           alt={category.name}
                           className="h-8 w-8 rounded-lg object-cover"
                         />
