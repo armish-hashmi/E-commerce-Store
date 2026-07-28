@@ -25,18 +25,12 @@ export async function POST(
     }
 
     if (order.status === 'refunded') {
-      return NextResponse.json(
-        { error: 'Order has already been refunded' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Order has already been refunded' }, { status: 400 });
     }
 
     if (!order.paymentIntentId) {
       return NextResponse.json(
-        {
-          error:
-            'This order has no associated payment to refund (created before refund support was added)',
-        },
+        { error: 'This order has no associated payment to refund (created before refund support was added)' },
         { status: 400 }
       );
     }
@@ -47,10 +41,13 @@ export async function POST(
     order.status = 'refunded';
     await order.save();
 
-    await notifyUser(
-      `Your order has been refunded.`,
-      order._id.toString()
-    );
+    if (order.customerEmail) {
+      await notifyUser(
+        order.customerEmail,
+        `Your order has been refunded.`,
+        order._id.toString()
+      );
+    }
 
     return NextResponse.json(order);
   } catch (error: any) {

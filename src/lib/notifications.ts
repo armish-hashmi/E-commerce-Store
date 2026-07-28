@@ -2,14 +2,16 @@ import { getAdminDb } from './firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export interface NotificationPayload {
-  title: string;
   message: string;
+  email?: string;
+  title?: string;
   orderId?: string;
 }
 
 
-export async function notifyAdmin({ title, message, orderId }: NotificationPayload) {
-  try {
+export async function notifyUser(options: NotifyUserOptions) {
+  const { message, email, title, orderId } = options;
+    try {
     const db = getAdminDb();
     await db.collection('notifications').add({
       recipientType: 'admin',
