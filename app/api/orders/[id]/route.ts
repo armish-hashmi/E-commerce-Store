@@ -31,13 +31,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    if (updated.customerEmail) {
-      await notifyUser(
-        updated.customerEmail,
-        `Your order has been ${status}.`,
-        updated._id.toString()
-      );
-    }
+  if (updated.customerEmail) {
+  await notifyUser(updated.customerEmail, {
+    title: 'Order Status Updated',
+    message: `Your order has been ${status}.`,
+    orderId: updated._id.toString(),
+  });
+}
 
     return NextResponse.json(updated);
   } catch (error: any) {
