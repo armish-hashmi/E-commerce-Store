@@ -42,51 +42,61 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return pathname.startsWith(path);
   };
 
-  const NavLinks = () => (
+  const PrimaryNav = () => (
     <nav className="space-y-1">
       <Link
         href="/admin"
         onClick={closeMenu}
-        className={`${baseNavLinkClass} ${isActive('/admin') && pathname === '/admin' ? activeNavLinkClass : inactiveNavLinkClass}`}
+        className={`${baseNavLinkClass} ${
+          isActive('/admin') && pathname === '/admin' ? activeNavLinkClass : inactiveNavLinkClass
+        }`}
       >
         Dashboard
       </Link>
       <Link
         href="/admin/orders"
         onClick={closeMenu}
-        className={`${baseNavLinkClass} ${isActive('/admin/orders') ? activeNavLinkClass : inactiveNavLinkClass}`}
+        className={`${baseNavLinkClass} ${
+          isActive('/admin/orders') ? activeNavLinkClass : inactiveNavLinkClass
+        }`}
       >
         Orders Management
       </Link>
       <Link
         href="/admin/products"
         onClick={closeMenu}
-        className={`${baseNavLinkClass} ${isActive('/admin/products') ? activeNavLinkClass : inactiveNavLinkClass}`}
+        className={`${baseNavLinkClass} ${
+          isActive('/admin/products') ? activeNavLinkClass : inactiveNavLinkClass
+        }`}
       >
         Products Management
       </Link>
       <Link
         href="/admin/categories"
         onClick={closeMenu}
-        className={`${baseNavLinkClass} ${isActive('/admin/categories') ? activeNavLinkClass : inactiveNavLinkClass}`}
+        className={`${baseNavLinkClass} ${
+          isActive('/admin/categories') ? activeNavLinkClass : inactiveNavLinkClass
+        }`}
       >
         Categories
       </Link>
-
-      <div className="mt-6 pt-4 space-y-1 border-t border-gray-200">
-        <Link href="/" onClick={closeMenu} className={secondaryLinkClass}>
-          Back to Store
-        </Link>
-        <button
-          type="button"
-          onClick={handleLogout}
-          disabled={loggingOut}
-          className={`${logoutButtonClass} disabled:opacity-50`}
-        >
-          {loggingOut ? 'Logging out...' : 'Logout'}
-        </button>
-      </div>
     </nav>
+  );
+
+  const BottomActions = () => (
+    <div className="pt-4 space-y-1 border-t border-gray-200">
+      <Link href="/" onClick={closeMenu} className={secondaryLinkClass}>
+        Back to Store
+      </Link>
+      <button
+        type="button"
+        onClick={handleLogout}
+        disabled={loggingOut}
+        className={`${logoutButtonClass} disabled:opacity-50`}
+      >
+        {loggingOut ? 'Logging out...' : 'Logout'}
+      </button>
+    </div>
   );
 
   return (
@@ -120,41 +130,49 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             onClick={closeMenu}
             aria-hidden="true"
           />
-          <aside className="relative w-64 max-w-[80%] bg-white h-full p-6 shadow-xl overflow-y-auto">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
-                  A
+          <aside className="relative w-64 max-w-[80%] bg-white h-full p-6 shadow-xl flex flex-col justify-between overflow-y-auto">
+            <div>
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                    A
+                  </div>
+                  <span className="text-xl font-bold text-gray-900">Admin Control</span>
                 </div>
-                <span className="text-xl font-bold text-gray-900">Admin Control</span>
+                <button
+                  type="button"
+                  onClick={closeMenu}
+                  aria-label="Close menu"
+                  className="p-1 text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={closeMenu}
-                aria-label="Close menu"
-                className="p-1 text-gray-500 hover:text-gray-700"
-              >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <PrimaryNav />
             </div>
-            <NavLinks />
+
+            <BottomActions />
           </aside>
         </div>
       )}
 
-      <aside className="hidden md:flex md:w-64 md:sticky md:top-0 md:h-screen bg-white border-r border-gray-200 p-6 flex-shrink-0 flex-col overflow-y-auto">
-        <div className="flex items-center justify-between gap-2 mb-8">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
-              A
+      <aside className="hidden md:flex md:w-64 md:sticky md:top-0 md:h-screen bg-white border-r border-gray-200 p-6 flex-shrink-0 flex-col justify-between overflow-y-auto">
+        <div>
+          <div className="flex items-center justify-between gap-2 mb-8">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                A
+              </div>
+              <span className="text-xl font-bold text-gray-900">Admin Control</span>
             </div>
-            <span className="text-xl font-bold text-gray-900">Admin Control</span>
+            <NotificationBell recipientType="admin" />
           </div>
-          <NotificationBell recipientType="admin" />
+          <PrimaryNav />
         </div>
-        <NavLinks />
+
+        <BottomActions />
       </aside>
 
       <main className="flex-1 p-4 sm:p-8 lg:p-10 overflow-y-auto">{children}</main>
