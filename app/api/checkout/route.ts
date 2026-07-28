@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { getSession } from '@/lib/auth';
+import { notifyAdmin } from '@/lib/notifications';
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,6 +20,11 @@ export async function POST(req: NextRequest) {
       return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
     };
 
+    const itemsTotal = cartItems.reduce(
+      (sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1),
+      0
+    );
+
     const line_items = cartItems.map((item: any) => {
       const imageUrl = toAbsoluteUrl(item.image);
 
@@ -36,22 +42,34 @@ export async function POST(req: NextRequest) {
     });
 
     const authSession = await getSession();
+    const customerEmail = authSession?.email;
 
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items,
-      customer_email: authSession?.email,
+      customer_email: customerEmail,
       shipping_options: [
         {
           shipping_rate_data: {
             type: 'fixed_amount',
-            fixed_amount: { amount: 1500, currency: 'usd' }, // $15.00 flat shipping, matching your cart page
+            fixed_amount: { amount: 1500, currency: 'usd' }, 
             display_name: 'Standard Shipping',
           },
         },
       ],
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/cart`,
+      metadata: {
+        userEmail: customerEmail || 'guest',
+        itemCount: String(cartItems.length),
+      },
+    });
+
+    await notifyAdmin({
+      title: 'Checkout Started',
+      message: `${customerEmail || 'A guest user'} initiated checkout for ${
+        cartItems.length
+      } item(s) ($${(itemsTotal + 15).toFixed(2)})`,
     });
 
     return NextResponse.json({ url: checkoutSession.url });

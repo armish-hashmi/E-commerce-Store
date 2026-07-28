@@ -14,9 +14,10 @@ import { db } from '@/lib/firebase-client';
 
 interface NotificationDoc {
   id: string;
+  title?: string;
   message: string;
-  orderId: string;
-  read: boolean;
+  orderId?: string;
+  read?: boolean;
   createdAt: any;
 }
 
@@ -77,7 +78,7 @@ export default function NotificationBell({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+ const unreadCount = notifications.filter((n) => !n.read).length;
 
   const handleMarkRead = async (id: string) => {
     try {
@@ -93,7 +94,7 @@ export default function NotificationBell({
         type="button"
         onClick={() => setIsOpen((v) => !v)}
         aria-label="Notifications"
-        className="relative p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition"
+        className="relative p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition focus:outline-none"
       >
         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -111,18 +112,28 @@ export default function NotificationBell({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 max-w-[90vw] rounded-xl border border-gray-200 bg-white shadow-lg z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-900">
-            Notifications
-          </div>
-          <div className="max-h-80 overflow-y-auto divide-y divide-gray-100">
-            {notifications.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-gray-400">
-                No notifications yet.
-              </div>
-            ) : (
-              notifications.map((n) => (
-                <button
+        <>
+          <div
+            className="fixed inset-0 z-40 sm:hidden"
+            onClick={() => setIsOpen(false)}
+          />
+
+          <div className="fixed left-6 right-6 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-64 sm:max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200 bg-white shadow-xl z-50 overflow-hidden flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-gray-100 bg-gray-50/50">
+              <span className="font-semibold text-xs text-gray-900">
+                Notifications
+              </span>
+            </div>
+
+            <div className="max-h-80 overflow-y-auto divide-y divide-gray-100">
+              {notifications.length === 0 ? (
+                <div className="px-3 py-5 text-center text-xs text-gray-400">
+                  No notifications yet.
+                </div>
+              ) : (
+                notifications.map((n) => {
+                  return (
+                 <button
                   key={n.id}
                   type="button"
                   onClick={() => handleMarkRead(n.id)}
@@ -137,10 +148,12 @@ export default function NotificationBell({
                     </div>
                   )}
                 </button>
-              ))
-            )}
+                  );
+                })
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

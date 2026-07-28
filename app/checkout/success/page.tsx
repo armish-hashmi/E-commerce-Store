@@ -13,7 +13,6 @@ function CheckoutSuccessContent() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Payment succeeded (we're only on this page because Stripe redirected here) — clear the local cart.
     localStorage.setItem('cart', JSON.stringify([]));
     window.dispatchEvent(new Event('storage'));
 

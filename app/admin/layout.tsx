@@ -6,15 +6,15 @@ import { useRouter, usePathname } from 'next/navigation';
 import NotificationBell from '@/components/NotificationBell';
 
 const baseNavLinkClass =
-  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition';
+  'flex items-center gap-3 px-3.5 py-3 rounded-lg text-sm font-semibold transition';
 const activeNavLinkClass = 'bg-indigo-100 text-indigo-700';
 const inactiveNavLinkClass = 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600';
 
 const secondaryLinkClass =
-  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-500 hover:bg-gray-100 transition';
+  'flex items-center gap-3 px-3.5 py-3 rounded-lg text-sm font-semibold text-gray-500 hover:bg-gray-100 transition';
 
 const logoutButtonClass =
-  'flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-red-600 hover:bg-red-50 transition text-left';
+  'flex w-full items-center gap-3 px-3.5 py-3 rounded-lg text-sm font-semibold text-red-600 hover:bg-red-50 transition text-left';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -43,7 +43,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   const PrimaryNav = () => (
-    <nav className="space-y-1">
+    <nav className="space-y-1.5">
       <Link
         href="/admin"
         onClick={closeMenu}
@@ -84,7 +84,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   );
 
   const BottomActions = () => (
-    <div className="pt-4 space-y-1 border-t border-gray-200">
+    <div className="pt-4 space-y-1.5 border-t border-gray-200">
       <Link href="/" onClick={closeMenu} className={secondaryLinkClass}>
         Back to Store
       </Link>
@@ -130,7 +130,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             onClick={closeMenu}
             aria-hidden="true"
           />
-          <aside className="relative w-64 max-w-[80%] bg-white h-full p-6 shadow-xl flex flex-col justify-between overflow-y-auto">
+          <aside className="relative w-72 max-w-[85%] bg-white h-full p-6 shadow-xl flex flex-col justify-between overflow-y-auto">
             <div>
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-2">
@@ -158,7 +158,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       )}
 
-      <aside className="hidden md:flex md:w-64 md:sticky md:top-0 md:h-screen bg-white border-r border-gray-200 p-6 flex-shrink-0 flex-col justify-between overflow-y-auto">
+      <aside className="hidden md:flex md:w-72 lg:w-80 md:sticky md:top-0 md:h-screen bg-white border-r border-gray-200 p-6 flex-shrink-0 flex-col justify-between overflow-y-auto">
         <div>
           <div className="flex items-center justify-between gap-2 mb-8">
             <div className="flex items-center gap-2">

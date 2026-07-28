@@ -1,14 +1,22 @@
 import { getAdminDb } from './firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
-export async function notifyAdmin(message: string, orderId: string) {
+export interface NotificationPayload {
+  title: string;
+  message: string;
+  orderId?: string;
+}
+
+
+export async function notifyAdmin({ title, message, orderId }: NotificationPayload) {
   try {
     const db = getAdminDb();
     await db.collection('notifications').add({
       recipientType: 'admin',
+      title,
       message,
-      orderId,
-      read: false,
+      ...(orderId && { orderId }),
+      isRead: false,
       createdAt: FieldValue.serverTimestamp(),
     });
   } catch (err) {
@@ -16,16 +24,21 @@ export async function notifyAdmin(message: string, orderId: string) {
   }
 }
 
-export async function notifyUser(email: string, message: string, orderId: string) {
+
+export async function notifyUser(
+  email: string,
+  { title, message, orderId }: NotificationPayload
+) {
   if (!email) return;
   try {
     const db = getAdminDb();
     await db.collection('notifications').add({
       recipientType: 'user',
-      recipientEmail: email,
+      recipientEmail: email.toLowerCase().trim(),
+      title,
       message,
-      orderId,
-      read: false,
+      ...(orderId && { orderId }),
+      isRead: false, 
       createdAt: FieldValue.serverTimestamp(),
     });
   } catch (err) {
