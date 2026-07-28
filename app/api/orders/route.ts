@@ -11,7 +11,9 @@ export async function GET() {
     }
 
     await connectToDatabase();
-    const orders = await Order.find({ customerEmail: session.email }).sort({ createdAt: -1 });
+
+    const filter = session.role === 'admin' ? {} : { customerEmail: session.email };
+    const orders = await Order.find(filter).sort({ createdAt: -1 });
 
     return NextResponse.json(orders);
   } catch (error: any) {
