@@ -54,11 +54,12 @@ export async function POST(req: NextRequest) {
           })),
         });
 
-       await notifyAdmin({
-        title: 'New Order',
-        message: `New order from ${newOrder.customerEmail || 'a customer'} — $${newOrder.amountTotal.toFixed(2)}`,
-        orderId: newOrder._id.toString(),
-      });
+        await notifyAdmin({
+          title: 'New Order',
+          message: `New order from ${newOrder.customerEmail || 'a customer'} — $${newOrder.amountTotal.toFixed(2)}`,
+          orderId: newOrder._id.toString(),
+        });
+      }
     } catch (err) {
       console.error('Failed to save order from Stripe webhook:', err);
       return NextResponse.json({ error: 'Failed to process order' }, { status: 500 });
