@@ -8,10 +8,12 @@ export interface NotificationPayload {
   orderId?: string;
 }
 
-
-export async function notifyUser(options: NotifyUserOptions) {
-  const { message, email, title, orderId } = options;
-    try {
+export async function notifyAdmin(
+  message: string,
+  orderId?: string,
+  title?: string
+) {
+  try {
     const db = getAdminDb();
     await db.collection('notifications').add({
       recipientType: 'admin',
@@ -26,7 +28,6 @@ export async function notifyUser(options: NotifyUserOptions) {
   }
 }
 
-
 export async function notifyUser(
   email: string,
   { title, message, orderId }: NotificationPayload
@@ -40,7 +41,7 @@ export async function notifyUser(
       title,
       message,
       ...(orderId && { orderId }),
-      isRead: false, 
+      isRead: false,
       createdAt: FieldValue.serverTimestamp(),
     });
   } catch (err) {
