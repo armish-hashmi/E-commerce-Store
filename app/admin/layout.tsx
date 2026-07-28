@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
+import NotificationBell from '@/components/NotificationBell';
 
 const baseNavLinkClass =
   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition';
@@ -20,7 +21,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  
+
   const closeMenu = () => setIsMenuOpen(false);
 
   const handleLogout = async () => {
@@ -42,39 +43,37 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   const NavLinks = () => (
-    <div className="flex flex-col h-full">
-      <nav className="space-y-1">
-        <Link
-          href="/admin"
-          onClick={closeMenu}
-          className={`${baseNavLinkClass} ${isActive('/admin') && pathname === '/admin' ? activeNavLinkClass : inactiveNavLinkClass}`}
-        >
-          Dashboard
-        </Link>
-        <Link
-          href="/admin/orders"
-          onClick={closeMenu}
-          className={`${baseNavLinkClass} ${isActive('/admin/orders') ? activeNavLinkClass : inactiveNavLinkClass}`}
-        >
-          Orders Management
-        </Link>
-        <Link
-          href="/admin/products"
-          onClick={closeMenu}
-          className={`${baseNavLinkClass} ${isActive('/admin/products') ? activeNavLinkClass : inactiveNavLinkClass}`}
-        >
-          Products Management
-        </Link>
-        <Link
-          href="/admin/categories"
-          onClick={closeMenu}
-          className={`${baseNavLinkClass} ${isActive('/admin/categories') ? activeNavLinkClass : inactiveNavLinkClass}`}
-        >
-          Categories
-        </Link>
-      </nav>
+    <nav className="space-y-1">
+      <Link
+        href="/admin"
+        onClick={closeMenu}
+        className={`${baseNavLinkClass} ${isActive('/admin') && pathname === '/admin' ? activeNavLinkClass : inactiveNavLinkClass}`}
+      >
+        Dashboard
+      </Link>
+      <Link
+        href="/admin/orders"
+        onClick={closeMenu}
+        className={`${baseNavLinkClass} ${isActive('/admin/orders') ? activeNavLinkClass : inactiveNavLinkClass}`}
+      >
+        Orders Management
+      </Link>
+      <Link
+        href="/admin/products"
+        onClick={closeMenu}
+        className={`${baseNavLinkClass} ${isActive('/admin/products') ? activeNavLinkClass : inactiveNavLinkClass}`}
+      >
+        Products Management
+      </Link>
+      <Link
+        href="/admin/categories"
+        onClick={closeMenu}
+        className={`${baseNavLinkClass} ${isActive('/admin/categories') ? activeNavLinkClass : inactiveNavLinkClass}`}
+      >
+        Categories
+      </Link>
 
-      <div className="mt-auto pt-4 space-y-1 border-t border-gray-200">
+      <div className="mt-6 pt-4 space-y-1 border-t border-gray-200">
         <Link href="/" onClick={closeMenu} className={secondaryLinkClass}>
           Back to Store
         </Link>
@@ -87,7 +86,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {loggingOut ? 'Logging out...' : 'Logout'}
         </button>
       </div>
-    </div>
+    </nav>
   );
 
   return (
@@ -99,16 +98,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
           <span className="text-lg font-bold text-gray-900">Admin Control</span>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsMenuOpen(true)}
-          aria-label="Open menu"
-          className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
-        >
-          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-3">
+          <NotificationBell recipientType="admin" />
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen(true)}
+            aria-label="Open menu"
+            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {isMenuOpen && (
@@ -118,7 +120,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             onClick={closeMenu}
             aria-hidden="true"
           />
-          <aside className="relative w-64 max-w-[80%] bg-white h-full p-6 shadow-xl overflow-y-auto flex flex-col">
+          <aside className="relative w-64 max-w-[80%] bg-white h-full p-6 shadow-xl overflow-y-auto">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
@@ -142,12 +144,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       )}
 
-      <aside className="hidden md:flex md:w-64 bg-white border-r border-gray-200 p-6 flex-shrink-0 flex-col">
-        <div className="flex items-center gap-2 mb-8">
-          <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
-            A
+      <aside className="hidden md:flex md:w-64 md:sticky md:top-0 md:h-screen bg-white border-r border-gray-200 p-6 flex-shrink-0 flex-col overflow-y-auto">
+        <div className="flex items-center justify-between gap-2 mb-8">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+              A
+            </div>
+            <span className="text-xl font-bold text-gray-900">Admin Control</span>
           </div>
-          <span className="text-xl font-bold text-gray-900">Admin Control</span>
+          <NotificationBell recipientType="admin" />
         </div>
         <NavLinks />
       </aside>

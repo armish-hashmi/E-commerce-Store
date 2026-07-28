@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import { Order } from '@/lib/models/Order';
 import { getSession } from '@/lib/auth';
+import { notifyUser } from '@/lib/notifications';
 
 export async function PATCH(
   req: NextRequest,
@@ -28,6 +29,14 @@ export async function PATCH(
 
     if (!updated) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    if (updated.customerEmail) {
+      await notifyUser(
+        updated.customerEmail,
+        `Your order has been ${status}.`,
+        updated._id.toString()
+      );
     }
 
     return NextResponse.json(updated);

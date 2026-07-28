@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import NotificationBell from '@/components/NotificationBell';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -10,6 +11,7 @@ export default function Navbar() {
   const [cartCount, setCartCount] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
 
   const pathname = usePathname();
@@ -38,9 +40,11 @@ export default function Navbar() {
         const data = await res.json();
         setIsLoggedIn(!!data.user);
         setIsAdmin(data.user?.role === 'admin');
+        setUserEmail(data.user?.email || null);
       } catch (err) {
         setIsLoggedIn(false);
         setIsAdmin(false);
+        setUserEmail(null);
       }
     }
 
@@ -72,6 +76,7 @@ export default function Navbar() {
     } finally {
       setIsLoggedIn(false);
       setIsAdmin(false);
+      setUserEmail(null);
       setLoggingOut(false);
       setIsOpen(false);
       router.push('/');
@@ -147,6 +152,8 @@ export default function Navbar() {
             </span>
           </Link>
 
+          {isLoggedIn && <NotificationBell recipientType="user" recipientEmail={userEmail} />}
+
           {isLoggedIn && (
             <Link
               href="/orders"
@@ -211,6 +218,11 @@ export default function Navbar() {
 
       {isOpen && (
         <div className="border-t border-gray-100 bg-white px-4 py-4 md:hidden space-y-2 shadow-lg">
+          {isLoggedIn && (
+            <div className="flex justify-end pb-1">
+              <NotificationBell recipientType="user" recipientEmail={userEmail} />
+            </div>
+          )}
           <Link href="/" onClick={() => setIsOpen(false)} className={getMobileLinkClass('/')}>
             Home
           </Link>
@@ -263,3 +275,4 @@ export default function Navbar() {
     </header>
   );
 }
+

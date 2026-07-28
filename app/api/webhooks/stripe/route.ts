@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe';
 import { connectToDatabase } from '@/lib/db';
 import { Order } from '@/lib/models/Order';
+import { notifyAdmin } from '@/lib/notifications';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
 
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
 
       const existing = await Order.findOne({ stripeSessionId: fullSession.id });
       if (!existing) {
-        await Order.create({
+        const newOrder = await Order.create({
           stripeSessionId: fullSession.id,
           paymentIntentId:
             typeof fullSession.payment_intent === 'string'
@@ -52,6 +53,11 @@ export async function POST(req: NextRequest) {
             amount: (item.amount_total || 0) / 100,
           })),
         });
+
+        await notifyAdmin(
+          `New order from ${newOrder.customerEmail || 'a customer'} — $${newOrder.amountTotal.toFixed(2)}`,
+          newOrder._id.toString()
+        );
       }
     } catch (err) {
       console.error('Failed to save order from Stripe webhook:', err);
