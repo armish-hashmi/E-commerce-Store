@@ -20,7 +20,7 @@ interface CategoryItem {
 
 interface Order {
   _id: string;
-  totalAmount: number;
+  amountTotal: number;
   status: string;
   createdAt?: string;
 }
@@ -90,7 +90,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+  const totalRevenue = orders.reduce((sum, order) => sum + (order.amountTotal || 0), 0);
   const totalOrders = orders.length;
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
