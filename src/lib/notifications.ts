@@ -8,11 +8,11 @@ export interface NotificationPayload {
   orderId?: string;
 }
 
-export async function notifyAdmin(
-  message: string,
-  orderId?: string,
-  title?: string
-) {
+export async function notifyAdmin({
+  title,
+  message,
+  orderId,
+}: Omit<NotificationPayload, 'email'>) {
   try {
     const db = getAdminDb();
     await db.collection('notifications').add({
