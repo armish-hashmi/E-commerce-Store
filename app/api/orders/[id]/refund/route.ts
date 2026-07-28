@@ -41,13 +41,11 @@ export async function POST(
     order.status = 'refunded';
     await order.save();
 
-    if (order.customerEmail) {
-      await notifyUser(
-        order.customerEmail,
-        `Your order has been refunded.`,
-        order._id.toString()
-      );
-    }
+    await notifyUser(order.customerEmail, {
+  title: 'Order Refunded',
+  message: `Your order has been refunded.`,
+  orderId: order._id.toString(),
+});
 
     return NextResponse.json(order);
   } catch (error: any) {
