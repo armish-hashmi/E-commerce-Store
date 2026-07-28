@@ -38,34 +38,49 @@ export default function NotificationBell({
       return;
     }
 
-    const q =
-      recipientType === 'admin'
-        ? query(
-            collection(db, 'notifications'),
-            where('recipientType', '==', 'admin'),
-            orderBy('createdAt', 'desc')
-          )
-        : query(
-            collection(db, 'notifications'),
-            where('recipientType', '==', 'user'),
-            where('recipientEmail', '==', recipientEmail),
-            orderBy('createdAt', 'desc')
+    let unsubscribe: (() => void) | undefined;
+    let retryTimeout: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+
+    const subscribe = () => {
+      const q =
+        recipientType === 'admin'
+          ? query(
+              collection(db, 'notifications'),
+              where('recipientType', '==', 'admin'),
+              orderBy('createdAt', 'desc')
+            )
+          : query(
+              collection(db, 'notifications'),
+              where('recipientType', '==', 'user'),
+              where('recipientEmail', '==', recipientEmail),
+              orderBy('createdAt', 'desc')
+            );
+
+      unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const items = snapshot.docs.map(
+            (d) => ({ id: d.id, ...d.data() } as NotificationDoc)
           );
+          setNotifications(items.slice(0, 20));
+        },
+        (err) => {
+          console.error('Notification listener error:', err);
+          if (!cancelled) {
+            retryTimeout = setTimeout(subscribe, 5000);
+          }
+        }
+      );
+    };
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const items = snapshot.docs.map(
-          (d) => ({ id: d.id, ...d.data() } as NotificationDoc)
-        );
-        setNotifications(items.slice(0, 20));
-      },
-      (err) => {
-        console.error('Notification listener error:', err);
-      }
-    );
+    subscribe();
 
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+      if (retryTimeout) clearTimeout(retryTimeout);
+      unsubscribe?.();
+    };
   }, [recipientType, recipientEmail]);
 
   useEffect(() => {
@@ -78,7 +93,7 @@ export default function NotificationBell({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
- const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const handleMarkRead = async (id: string) => {
     try {
@@ -133,21 +148,21 @@ export default function NotificationBell({
               ) : (
                 notifications.map((n) => {
                   return (
-                 <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => handleMarkRead(n.id)}
-                  className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition ${
-                    n.read ? 'text-gray-500' : 'text-gray-900 bg-indigo-50/40 font-medium'
-                  }`}
-                >
-                  {n.message}
-                  {n.createdAt?.toDate && (
-                    <div className="mt-1 text-xs text-gray-400 font-normal">
-                      {n.createdAt.toDate().toLocaleString()}
-                    </div>
-                  )}
-                </button>
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => handleMarkRead(n.id)}
+                      className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition ${
+                        n.read ? 'text-gray-500' : 'text-gray-900 bg-indigo-50/40 font-medium'
+                      }`}
+                    >
+                      {n.message}
+                      {n.createdAt?.toDate && (
+                        <div className="mt-1 text-xs text-gray-400 font-normal">
+                          {n.createdAt.toDate().toLocaleString()}
+                        </div>
+                      )}
+                    </button>
                   );
                 })
               )}
