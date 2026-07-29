@@ -190,10 +190,13 @@ export default function AdminDashboardPage() {
                   <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#6b7280' }} />
                   <YAxis
                     tick={{ fontSize: 12, fill: '#6b7280' }}
-                    tickFormatter={(value) => `$${value}`}
+                    tickFormatter={(value: number) => `$${value}`}
                   />
                   <Tooltip
-                    formatter={(value: number) => [`$${value.toFixed(2)}`, 'Revenue']}
+                    formatter={(value: unknown) => [
+                      `$${typeof value === 'number' ? value.toFixed(2) : '0.00'}`,
+                      'Revenue',
+                    ]}
                     contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13 }}
                   />
                   <Line
