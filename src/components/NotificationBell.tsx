@@ -17,7 +17,7 @@ interface NotificationDoc {
   title?: string;
   message: string;
   orderId?: string;
-  read?: boolean;
+  isRead?: boolean;
   createdAt: any;
 }
 
@@ -29,11 +29,13 @@ export default function NotificationBell({
   recipientEmail?: string | null;
 }) {
   const [notifications, setNotifications] = useState<NotificationDoc[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState<boolean>(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (recipientType === 'user' && !recipientEmail) {
+    const normalizedEmail = recipientEmail?.toLowerCase().trim();
+
+    if (recipientType === 'user' && !normalizedEmail) {
       setNotifications([]);
       return;
     }
@@ -53,7 +55,7 @@ export default function NotificationBell({
           : query(
               collection(db, 'notifications'),
               where('recipientType', '==', 'user'),
-              where('recipientEmail', '==', recipientEmail),
+              where('recipientEmail', '==', normalizedEmail),
               orderBy('createdAt', 'desc')
             );
 
@@ -93,11 +95,11 @@ export default function NotificationBell({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const handleMarkRead = async (id: string) => {
     try {
-      await updateDoc(doc(db, 'notifications', id), { read: true });
+      await updateDoc(doc(db, 'notifications', id), { isRead: true });
     } catch (err) {
       console.error('Failed to mark notification as read:', err);
     }
@@ -146,25 +148,23 @@ export default function NotificationBell({
                   No notifications yet.
                 </div>
               ) : (
-                notifications.map((n) => {
-                  return (
-                    <button
-                      key={n.id}
-                      type="button"
-                      onClick={() => handleMarkRead(n.id)}
-                      className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition ${
-                        n.read ? 'text-gray-500' : 'text-gray-900 bg-indigo-50/40 font-medium'
-                      }`}
-                    >
-                      {n.message}
-                      {n.createdAt?.toDate && (
-                        <div className="mt-1 text-xs text-gray-400 font-normal">
-                          {n.createdAt.toDate().toLocaleString()}
-                        </div>
-                      )}
-                    </button>
-                  );
-                })
+                notifications.map((n) => (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => handleMarkRead(n.id)}
+                    className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition ${
+                      n.isRead ? 'text-gray-500' : 'text-gray-900 bg-indigo-50/40 font-medium'
+                    }`}
+                  >
+                    {n.message}
+                    {n.createdAt?.toDate && (
+                      <div className="mt-1 text-xs text-gray-400 font-normal">
+                        {n.createdAt.toDate().toLocaleString()}
+                      </div>
+                    )}
+                  </button>
+                ))
               )}
             </div>
           </div>

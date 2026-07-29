@@ -12,7 +12,11 @@ export async function GET() {
 
     await connectToDatabase();
 
-    const filter = session.role === 'admin' ? {} : { customerEmail: session.email };
+    const filter =
+      session.role === 'admin'
+        ? { customerEmail: { $ne: session.email } }
+        : { customerEmail: session.email };
+
     const orders = await Order.find(filter).sort({ createdAt: -1 });
 
     return NextResponse.json(orders);

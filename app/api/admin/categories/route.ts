@@ -30,9 +30,15 @@ export async function POST(req: NextRequest) {
 
     const newCategory = await Category.create({ name, slug, description, image });
     return NextResponse.json(newCategory, { status: 201 });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to create category' }, { status: 500 });
-  }
+    } catch (error: any) {
+      if (error.code === 11000) {
+        return NextResponse.json(
+          { error: 'A category with this name already exists' },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({ error: 'Failed to create category' }, { status: 500 });
+    }
 }
 
 export async function PUT(req: NextRequest) {
@@ -68,11 +74,16 @@ export async function PUT(req: NextRequest) {
     }
 
     return NextResponse.json(updated, { status: 200 });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.code === 11000) {
+      return NextResponse.json(
+        { error: 'A category with this name already exists' },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ error: 'Failed to update category' }, { status: 500 });
   }
 }
-
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getSession();

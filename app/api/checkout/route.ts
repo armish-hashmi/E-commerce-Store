@@ -5,6 +5,15 @@ import { notifyAdmin } from '@/lib/notifications';
 
 export async function POST(req: NextRequest) {
   try {
+    const authSession = await getSession();
+
+    if (authSession?.role === 'admin') {
+      return NextResponse.json(
+        { error: 'Admin accounts cannot make purchases' },
+        { status: 403 }
+      );
+    }
+
     const stripe = getStripe();
     const { cartItems } = await req.json();
 
@@ -41,7 +50,6 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    const authSession = await getSession();
     const customerEmail = authSession?.email;
 
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -52,7 +60,7 @@ export async function POST(req: NextRequest) {
         {
           shipping_rate_data: {
             type: 'fixed_amount',
-            fixed_amount: { amount: 1500, currency: 'usd' }, 
+            fixed_amount: { amount: 1500, currency: 'usd' },
             display_name: 'Standard Shipping',
           },
         },

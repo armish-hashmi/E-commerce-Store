@@ -1,6 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from 'recharts';
 
 interface Product {
   _id: string;
@@ -20,10 +29,20 @@ interface CategoryItem {
 
 interface Order {
   _id: string;
+  customerEmail?: string;
   amountTotal: number;
-  status: string;
-  createdAt?: string;
+  status: 'paid' | 'accepted' | 'rejected' | 'refunded';
+  createdAt: string;
 }
+
+const statusStyles: Record<string, string> = {
+  paid: 'bg-amber-50 text-amber-700 border border-amber-200',
+  accepted: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  rejected: 'bg-red-50 text-red-700 border border-red-200',
+  refunded: 'bg-gray-100 text-gray-600 border border-gray-200',
+};
+
+const RECENT_ORDERS_LIMIT = 5;
 
 export default function AdminDashboardPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -31,7 +50,6 @@ export default function AdminDashboardPage() {
   const [orders, setOrders] = useState<Order[]>([]);
 
   const [loadingProducts, setLoadingProducts] = useState(true);
-  const [loadingCategories, setLoadingCategories] = useState(true);
   const [loadingOrders, setLoadingOrders] = useState(true);
 
   useEffect(() => {
@@ -46,11 +64,6 @@ export default function AdminDashboardPage() {
       const contentType = res.headers.get('content-type') || '';
 
       if (!res.ok || !contentType.includes('application/json')) {
-        const text = await res.text();
-        console.error(
-          `Expected JSON from /api/admin/products but got status ${res.status}. Response body:`,
-          text.slice(0, 500)
-        );
         setProducts([]);
         return;
       }
@@ -72,8 +85,6 @@ export default function AdminDashboardPage() {
       setCategories(data.categories || []);
     } catch (err) {
       console.error(err);
-    } finally {
-      setLoadingCategories(false);
     }
   };
 
@@ -93,6 +104,29 @@ export default function AdminDashboardPage() {
   const totalRevenue = orders.reduce((sum, order) => sum + (order.amountTotal || 0), 0);
   const totalOrders = orders.length;
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+  const revenueByDay = useMemo(() => {
+    const grouped: Record<string, number> = {};
+
+    orders.forEach((order) => {
+      if (!order.createdAt) return;
+      const day = new Date(order.createdAt).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+      grouped[day] = (grouped[day] || 0) + (order.amountTotal || 0);
+    });
+
+    return Object.entries(grouped)
+      .map(([date, revenue]) => ({ date, revenue }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [orders]);
+
+  const recentOrders = useMemo(() => {
+    return [...orders]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, RECENT_ORDERS_LIMIT);
+  }, [orders]);
 
   return (
     <div className="space-y-10">
@@ -135,53 +169,58 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="mb-4">
-          <h2 className="text-xl font-bold text-gray-900">Products</h2>
-          <p className="text-sm text-gray-500">All products currently live on the store.</p>
+          <h2 className="text-xl font-bold text-gray-900">Revenue</h2>
+          <p className="text-sm text-gray-500">Revenue trend based on order history.</p>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden mb-10">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-gray-600">
-              <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500">
-                <tr>
-                  <th className="px-6 py-3">Product</th>
-                  <th className="px-6 py-3">Category</th>
-                  <th className="px-6 py-3">Price</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {loadingProducts ? (
-                  <tr>
-                    <td colSpan={3} className="text-center py-8">Loading products...</td>
-                  </tr>
-                ) : products.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} className="text-center py-8">No products found.</td>
-                  </tr>
-                ) : (
-                  products.map((product) => (
-                    <tr key={product._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 flex items-center gap-3">
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="h-10 w-10 rounded-lg object-cover"
-                        />
-                        <span className="font-semibold text-gray-900">{product.name}</span>
-                      </td>
-                      <td className="px-6 py-4">{product.category}</td>
-                      <td className="px-6 py-4 font-medium text-gray-900">${product.price.toFixed(2)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-6 mb-10">
+          {loadingOrders ? (
+            <div className="h-72 flex items-center justify-center text-sm text-gray-400">
+              Loading chart...
+            </div>
+          ) : revenueByDay.length === 0 ? (
+            <div className="h-72 flex items-center justify-center text-sm text-gray-400">
+              No order data yet.
+            </div>
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={revenueByDay}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#6b7280' }} />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: '#6b7280' }}
+                    tickFormatter={(value) => `$${value}`}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [`$${value.toFixed(2)}`, 'Revenue']}
+                    contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#4f46e5"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: '#4f46e5' }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Recent Orders</h2>
+            <p className="text-sm text-gray-500">The most recent orders placed on the store.</p>
           </div>
-        </div>
-
-        <div className="mb-4">
-          <h2 className="text-xl font-bold text-gray-900">Categories</h2>
-          <p className="text-sm text-gray-500">All categories currently live on the store.</p>
+          <a
+            href="/admin/orders"
+            className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition"
+          >
+            View all →
+          </a>
         </div>
 
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -189,33 +228,40 @@ export default function AdminDashboardPage() {
             <table className="w-full text-left text-sm text-gray-600">
               <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500">
                 <tr>
-                  <th className="px-6 py-3">Category</th>
-                  <th className="px-6 py-3">Slug</th>
+                  <th className="px-6 py-3">Customer</th>
+                  <th className="px-6 py-3">Date</th>
+                  <th className="px-6 py-3">Total</th>
+                  <th className="px-6 py-3">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {loadingCategories ? (
+                {loadingOrders ? (
                   <tr>
-                    <td colSpan={2} className="text-center py-8">Loading categories...</td>
+                    <td colSpan={4} className="text-center py-8">Loading orders...</td>
                   </tr>
-                ) : categories.length === 0 ? (
+                ) : recentOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={2} className="text-center py-8">No categories found.</td>
+                    <td colSpan={4} className="text-center py-8">No orders yet.</td>
                   </tr>
                 ) : (
-                  categories.map((category) => (
-                    <tr key={category._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 flex items-center gap-3">
-                        {category.image && (
-                          <img
-                            src={category.image}
-                            alt={category.name}
-                            className="h-8 w-8 rounded-lg object-cover"
-                          />
-                        )}
-                        <span className="font-semibold text-gray-900">{category.name}</span>
+                  recentOrders.map((order) => (
+                    <tr key={order._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 font-semibold text-gray-900">
+                        {order.customerEmail || 'Unknown'}
                       </td>
-                      <td className="px-6 py-4 font-mono text-xs text-gray-500">{category.slug}</td>
+                      <td className="px-6 py-4 text-xs text-gray-400">
+                        {new Date(order.createdAt).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 font-medium text-gray-900">
+                        ${order.amountTotal.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusStyles[order.status]}`}
+                        >
+                          {order.status}
+                        </span>
+                      </td>
                     </tr>
                   ))
                 )}

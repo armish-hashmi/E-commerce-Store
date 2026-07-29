@@ -6,6 +6,7 @@ import ProductCard from '@/components/ui/ProductCard';
 import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '@/data/mockData';
 
 const FALLBACK_CATEGORY_NAMES = ['Electronics', 'Accessories', 'Furniture'];
+const PRODUCTS_PER_PAGE = 8;
 
 function ProductListingContent() {
   const searchParams = useSearchParams();
@@ -14,10 +15,10 @@ function ProductListingContent() {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl || 'All');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [products, setProducts] = useState<any[]>(MOCK_PRODUCTS);
-  const [categoryNames, setCategoryNames] = useState<string[]>(
-    MOCK_CATEGORIES.map((c) => c.name)
-  );
+  const [products, setProducts] = useState<any[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [categoryNames, setCategoryNames] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     setSelectedCategory(categoryFromUrl || 'All');
@@ -39,6 +40,8 @@ function ProductListingContent() {
       } catch (error) {
         console.error('Failed to fetch products from DB, falling back to mock data', error);
         setProducts(MOCK_PRODUCTS);
+      } finally {
+        setLoadingProducts(false);
       }
     }
 
@@ -63,6 +66,10 @@ function ProductListingContent() {
     fetchProducts();
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedCategory]);
 
   const triggerToast = (itemTitle: string) => {
     setToastMessage(`"${itemTitle}" added to cart!`);
@@ -105,6 +112,17 @@ function ProductListingContent() {
     return matchesSearch && matchesCategory;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PRODUCTS_PER_PAGE));
+  const paginated = filtered.slice(
+    (currentPage - 1) * PRODUCTS_PER_PAGE,
+    currentPage * PRODUCTS_PER_PAGE
+  );
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 relative">
       {toastMessage && (
@@ -144,18 +162,58 @@ function ProductListingContent() {
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {filtered.map((product) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-            onAddToCart={() => handleAddToCart(product)}
-          />
-        ))}
-      </div>
+      {loadingProducts ? (
+        <div className="py-20 text-center text-gray-500">Loading products...</div>
+      ) : (
+        <>
+          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {paginated.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onAddToCart={() => handleAddToCart(product)}
+              />
+            ))}
+          </div>
 
-      {filtered.length === 0 && (
-        <div className="py-20 text-center text-gray-500">No products match your criteria.</div>
+          {filtered.length === 0 && (
+            <div className="py-20 text-center text-gray-500">No products match your criteria.</div>
+          )}
+
+          {filtered.length > 0 && totalPages > 1 && (
+            <div className="mt-10 flex items-center justify-center gap-2">
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition"
+              >
+                Previous
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => goToPage(page)}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                    currentPage === page
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -172,4 +230,3 @@ export default function ProductListingPage() {
     </Suspense>
   );
 }
-

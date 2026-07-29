@@ -11,12 +11,24 @@ interface Product {
   description?: string;
 }
 
+interface CategoryItem {
+  _id: string;
+  name: string;
+  slug: string;
+}
+
+const PRODUCTS_PER_PAGE = 10;
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -28,6 +40,7 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
 
   const fetchProducts = async () => {
@@ -36,11 +49,6 @@ export default function AdminProductsPage() {
       const contentType = res.headers.get('content-type') || '';
 
       if (!res.ok || !contentType.includes('application/json')) {
-        const text = await res.text();
-        console.error(
-          `Expected JSON from /api/products but got status ${res.status}. Response body:`,
-          text.slice(0, 500)
-        );
         setProducts([]);
         return;
       }
@@ -54,7 +62,19 @@ export default function AdminProductsPage() {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/api/admin/categories');
+      if (!res.ok) return;
+      const data = await res.json();
+      setCategories(data.categories || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleOpenModal = (product?: Product) => {
+    setFormError(null);
     if (product) {
       setEditingProduct(product);
       setFormData({
@@ -73,26 +93,39 @@ export default function AdminProductsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = {
-      ...formData,
-      price: parseFloat(formData.price),
-    };
+    setFormError(null);
+    setSubmitting(true);
 
-    const url = editingProduct
-      ? `/api/admin/products/${editingProduct._id}`
-      : '/api/admin/products';
+    try {
+      const payload = {
+        ...formData,
+        price: parseFloat(formData.price),
+      };
 
-    const method = editingProduct ? 'PUT' : 'POST';
+      const url = editingProduct
+        ? `/api/admin/products/${editingProduct._id}`
+        : '/api/admin/products';
 
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+      const method = editingProduct ? 'PUT' : 'POST';
 
-    if (res.ok) {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to ${editingProduct ? 'update' : 'create'} product`);
+      }
+
       setIsModalOpen(false);
       fetchProducts();
+    } catch (err: any) {
+      setFormError(err.message || 'Something went wrong');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -123,6 +156,22 @@ export default function AdminProductsPage() {
       setProducts(products.filter((p) => p._id !== id));
     }
   };
+
+  const totalPages = Math.max(1, Math.ceil(products.length / PRODUCTS_PER_PAGE));
+  const paginatedProducts = products.slice(
+    (currentPage - 1) * PRODUCTS_PER_PAGE,
+    currentPage * PRODUCTS_PER_PAGE
+  );
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
 
   return (
     <div>
@@ -164,37 +213,83 @@ export default function AdminProductsPage() {
                 <tr>
                   <td colSpan={4} className="text-center py-8">Loading products...</td>
                 </tr>
-              ) : products.map((product) => (
-                <tr key={product._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 flex items-center gap-3">
-                    <img
-                      src={product.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500'}
-                      alt={product.name}
-                      className="h-10 w-10 rounded-lg object-cover"
-                    />
-                    <span className="font-semibold text-gray-900">{product.name}</span>
-                  </td>
-                  <td className="px-6 py-4">{product.category}</td>
-                  <td className="px-6 py-4 font-medium text-gray-900">${product.price.toFixed(2)}</td>
-                  <td className="px-6 py-4 text-right space-x-3">
-                    <button
-                      onClick={() => handleOpenModal(product)}
-                      className="text-indigo-600 hover:underline font-medium"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(product._id)}
-                      className="text-red-500 hover:underline font-medium"
-                    >
-                      Delete
-                    </button>
-                  </td>
+              ) : products.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="text-center py-8">No products found.</td>
                 </tr>
-              ))}
+              ) : (
+                paginatedProducts.map((product) => (
+                  <tr key={product._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 flex items-center gap-3">
+                      <img
+                        src={product.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500'}
+                        alt={product.name}
+                        className="h-10 w-10 rounded-lg object-cover"
+                      />
+                      <span className="font-semibold text-gray-900">{product.name}</span>
+                    </td>
+                    <td className="px-6 py-4">{product.category}</td>
+                    <td className="px-6 py-4 font-medium text-gray-900">${product.price.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-right space-x-3">
+                      <button
+                        onClick={() => handleOpenModal(product)}
+                        className="text-indigo-600 hover:underline font-medium"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(product._id)}
+                        className="text-red-500 hover:underline font-medium"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
+
+        {!loading && products.length > 0 && totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
+            <p className="text-xs text-gray-500">
+              Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}–
+              {Math.min(currentPage * PRODUCTS_PER_PAGE, products.length)} of {products.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition"
+              >
+                Previous
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => goToPage(page)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                    currentPage === page
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {isModalOpen && (
@@ -203,6 +298,13 @@ export default function AdminProductsPage() {
             <h2 className="text-xl font-bold text-gray-900 mb-4">
               {editingProduct ? 'Edit Product' : 'Add Product'}
             </h2>
+
+            {formError && (
+              <div className="mb-4 p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg">
+                {formError}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-700">Product Name</label>
@@ -216,7 +318,7 @@ export default function AdminProductsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700">Price </label>
+                  <label className="block text-xs font-semibold text-gray-700">Price</label>
                   <input
                     type="number"
                     step="0.01"
@@ -228,17 +330,30 @@ export default function AdminProductsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-700">Category</label>
-                  <input
-                    type="text"
+                  <select
                     required
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-gray-300 p-2.5 text-sm"
-                  />
+                    className="mt-1 w-full rounded-lg border border-gray-300 p-2.5 text-sm bg-white"
+                  >
+                    <option value="" disabled>
+                      Select a category
+                    </option>
+                    {categories.map((cat) => (
+                      <option key={cat._id} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                  {categories.length === 0 && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      No categories yet — add one on the Categories page first.
+                    </p>
+                  )}
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700">Image </label>
+                <label className="block text-xs font-semibold text-gray-700">Image</label>
                 <input
                   required
                   value={formData.image}
@@ -256,9 +371,10 @@ export default function AdminProductsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                  disabled={submitting}
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  Save
+                  {submitting ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </form>

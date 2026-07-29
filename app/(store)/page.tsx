@@ -5,11 +5,14 @@ import Link from 'next/link';
 import ProductCard from '@/components/ui/ProductCard';
 import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '@/data/mockData';
 
+const PRODUCTS_PER_PAGE = 8;
 
 export default function HomePage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [products, setProducts] = useState<any[]>(MOCK_PRODUCTS);
-  const [categories, setCategories] = useState<any[]>(MOCK_CATEGORIES);
+  const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     async function fetchProducts() {
@@ -27,6 +30,8 @@ export default function HomePage() {
       } catch (error) {
         console.error('Failed to fetch products from DB, falling back to mock data', error);
         setProducts(MOCK_PRODUCTS);
+      } finally {
+        setLoadingProducts(false);
       }
     }
 
@@ -40,7 +45,7 @@ export default function HomePage() {
             const mapped = dbCategories.map((c: any) => ({
               id: c._id,
               name: c.name,
-              image: c.image ,
+              image: c.image,
               itemCount: c.itemCount,
             }));
             setCategories(mapped);
@@ -58,7 +63,15 @@ export default function HomePage() {
     fetchCategories();
   }, []);
 
-  const featured = products;
+  const totalPages = Math.max(1, Math.ceil(products.length / PRODUCTS_PER_PAGE));
+  const paginatedProducts = products.slice(
+    (currentPage - 1) * PRODUCTS_PER_PAGE,
+    currentPage * PRODUCTS_PER_PAGE
+  );
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+  };
 
   const triggerToast = (itemTitle: string) => {
     setToastMessage(`"${itemTitle}" added to cart!`);
@@ -165,15 +178,56 @@ export default function HomePage() {
             View all &rarr;
           </Link>
         </div>
-        <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {featured.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              onAddToCart={() => handleAddToCart(product)}
-            />
-          ))}
-        </div>
+
+        {loadingProducts ? (
+          <div className="mt-6 py-12 text-center text-gray-500">Loading products...</div>
+        ) : (
+          <>
+            <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {paginatedProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onAddToCart={() => handleAddToCart(product)}
+                />
+              ))}
+            </div>
+
+            {products.length > 0 && totalPages > 1 && (
+              <div className="mt-10 flex items-center justify-center gap-2">
+                <button
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition"
+                >
+                  Previous
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => goToPage(page)}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                      currentPage === page
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </section>
     </div>
   );
