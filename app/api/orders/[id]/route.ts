@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import { Order } from '@/lib/models/Order';
@@ -16,7 +15,7 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const { status, reason } = await req.json();
+    const { status } = await req.json();
 
     if (!['accepted', 'rejected'].includes(status)) {
       return NextResponse.json(
@@ -25,38 +24,17 @@ export async function PATCH(
       );
     }
 
-    if (status === 'rejected' && (!reason || !reason.trim())) {
-      return NextResponse.json(
-        { error: 'A reason is required when rejecting an order' },
-        { status: 400 }
-      );
-    }
-
     await connectToDatabase();
-    const updated = await Order.findByIdAndUpdate(
-      id,
-      {
-        status,
-        ...(status === 'rejected' ? { statusReason: reason.trim() } : {}),
-      },
-      { new: true }
-    );
+    const updated = await Order.findByIdAndUpdate(id, { status }, { new: true });
 
     if (!updated) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     if (updated.customerEmail) {
-      const message =
-        status === 'rejected'
-          ? `Your order has been rejected. Reason: ${reason.trim()} Since payment was already captured, a full refund of $${updated.amountTotal.toFixed(
-              2
-            )} will be issued automatically to your original payment method within 5–10 business days.`
-          : `Good news — your order has been accepted and is now being prepared for shipment.`;
-
       await notifyUser(updated.customerEmail, {
-        title: status === 'rejected' ? 'Order Rejected' : 'Order Accepted',
-        message,
+        title: 'Order Update',
+        message: `Your order has been ${status}.`,
         orderId: updated._id.toString(),
       });
     }
