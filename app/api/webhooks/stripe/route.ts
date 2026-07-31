@@ -8,6 +8,21 @@ import { notifyAdmin, notifyUser } from '@/lib/notifications';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
 
+
+function getCurrentPeriodEnd(subscription: Stripe.Subscription): Date | undefined {
+  const topLevel = (subscription as any).current_period_end;
+  if (typeof topLevel === 'number') {
+    return new Date(topLevel * 1000);
+  }
+
+  const itemLevel = (subscription as any).items?.data?.[0]?.current_period_end;
+  if (typeof itemLevel === 'number') {
+    return new Date(itemLevel * 1000);
+  }
+
+  return undefined;
+}
+
 export async function POST(req: NextRequest) {
   const stripe = getStripe();
   const body = await req.text();
@@ -29,7 +44,6 @@ export async function POST(req: NextRequest) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
 
-    // Subscription checkouts are handled separately from one-time product orders.
     if (session.mode === 'subscription') {
       try {
         await connectToDatabase();
@@ -50,7 +64,7 @@ export async function POST(req: NextRequest) {
               stripeCustomerId: customerId,
               stripeSubscriptionId: subscriptionId,
               status: stripeSubscription.status,
-              currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+              currentPeriodEnd: getCurrentPeriodEnd(stripeSubscription),
             },
             { upsert: true, new: true }
           );
@@ -69,14 +83,12 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      // Re-fetch with line_items expanded — the webhook payload doesn't include them by default.
       const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
         expand: ['line_items'],
       });
 
       await connectToDatabase();
 
-      // Idempotency: Stripe may deliver the same event more than once.
       const existing = await Order.findOne({ stripeSessionId: fullSession.id });
       if (!existing) {
         const newOrder = await Order.create({
@@ -104,7 +116,6 @@ export async function POST(req: NextRequest) {
       }
     } catch (err) {
       console.error('Failed to save order from Stripe webhook:', err);
-      // Returning 500 here tells Stripe to retry the webhook later.
       return NextResponse.json({ error: 'Failed to process order' }, { status: 500 });
     }
   }
@@ -119,7 +130,7 @@ export async function POST(req: NextRequest) {
         { stripeSubscriptionId: stripeSubscription.id },
         {
           status: stripeSubscription.status,
-          currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+          currentPeriodEnd: getCurrentPeriodEnd(stripeSubscription),
         }
       );
     } catch (err) {
