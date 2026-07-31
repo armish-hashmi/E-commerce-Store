@@ -11,6 +11,7 @@ export default function Navbar() {
   const [cartCount, setCartCount] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -41,10 +42,23 @@ export default function Navbar() {
         setIsLoggedIn(!!data.user);
         setIsAdmin(data.user?.role === 'admin');
         setUserEmail(data.user?.email || null);
+
+        if (data.user) {
+          try {
+            const subRes = await fetch('/api/subscription/status');
+            const subData = await subRes.json();
+            setIsSubscribed(!!subData.isSubscribed);
+          } catch {
+            setIsSubscribed(false);
+          }
+        } else {
+          setIsSubscribed(false);
+        }
       } catch (err) {
         setIsLoggedIn(false);
         setIsAdmin(false);
         setUserEmail(null);
+        setIsSubscribed(false);
       }
     }
 
@@ -76,6 +90,7 @@ export default function Navbar() {
     } finally {
       setIsLoggedIn(false);
       setIsAdmin(false);
+      setIsSubscribed(false);
       setUserEmail(null);
       setLoggingOut(false);
       setIsOpen(false);
@@ -151,6 +166,21 @@ export default function Navbar() {
               {cartCount}
             </span>
           </Link>
+
+          {isLoggedIn && (
+            <Link
+              href="/subscribe"
+              className={`text-sm font-semibold transition-colors ${
+                pathname === '/subscribe'
+                  ? 'text-indigo-600'
+                  : isSubscribed
+                  ? 'text-emerald-600 hover:text-emerald-700'
+                  : 'text-gray-700 hover:text-indigo-600'
+              }`}
+            >
+              {isSubscribed ? '★ Premium' : 'Subscribe'}
+            </Link>
+          )}
 
           {isLoggedIn && <NotificationBell recipientType="user" recipientEmail={userEmail} />}
 
@@ -242,6 +272,11 @@ export default function Navbar() {
             Wishlist ({wishlistCount})
           </Link>
           {isLoggedIn && (
+            <Link href="/subscribe" onClick={() => setIsOpen(false)} className={getMobileLinkClass('/subscribe')}>
+              {isSubscribed ? '★ Premium Member' : 'Subscribe for a Discount'}
+            </Link>
+          )}
+          {isLoggedIn && (
             <Link href="/orders" onClick={() => setIsOpen(false)} className={getMobileLinkClass('/orders')}>
               My Orders
             </Link>
@@ -275,4 +310,3 @@ export default function Navbar() {
     </header>
   );
 }
-

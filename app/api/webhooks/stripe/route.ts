@@ -3,7 +3,8 @@ import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe';
 import { connectToDatabase } from '@/lib/db';
 import { Order } from '@/lib/models/Order';
-import { notifyAdmin } from '@/lib/notifications';
+import { Subscription } from '@/lib/models/Subscription';
+import { notifyAdmin, notifyUser } from '@/lib/notifications';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
 
@@ -28,13 +29,54 @@ export async function POST(req: NextRequest) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
 
+    // Subscription checkouts are handled separately from one-time product orders.
+    if (session.mode === 'subscription') {
+      try {
+        await connectToDatabase();
+
+        const customerId =
+          typeof session.customer === 'string' ? session.customer : session.customer?.id;
+        const subscriptionId =
+          typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+        const email = session.customer_details?.email || session.metadata?.userEmail || '';
+
+        if (customerId && subscriptionId && email) {
+          const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+          await Subscription.findOneAndUpdate(
+            { userEmail: email.toLowerCase() },
+            {
+              userEmail: email.toLowerCase(),
+              stripeCustomerId: customerId,
+              stripeSubscriptionId: subscriptionId,
+              status: stripeSubscription.status,
+              currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+            },
+            { upsert: true, new: true }
+          );
+
+          await notifyUser(email, {
+            title: 'Subscription Active',
+            message: 'Your subscription is now active — enjoy your member discount!',
+          });
+        }
+      } catch (err) {
+        console.error('Failed to save subscription from Stripe webhook:', err);
+        return NextResponse.json({ error: 'Failed to process subscription' }, { status: 500 });
+      }
+
+      return NextResponse.json({ received: true });
+    }
+
     try {
+      // Re-fetch with line_items expanded — the webhook payload doesn't include them by default.
       const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
         expand: ['line_items'],
       });
 
       await connectToDatabase();
 
+      // Idempotency: Stripe may deliver the same event more than once.
       const existing = await Order.findOne({ stripeSessionId: fullSession.id });
       if (!existing) {
         const newOrder = await Order.create({
@@ -62,7 +104,27 @@ export async function POST(req: NextRequest) {
       }
     } catch (err) {
       console.error('Failed to save order from Stripe webhook:', err);
+      // Returning 500 here tells Stripe to retry the webhook later.
       return NextResponse.json({ error: 'Failed to process order' }, { status: 500 });
+    }
+  }
+
+  if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+    const stripeSubscription = event.data.object as Stripe.Subscription;
+
+    try {
+      await connectToDatabase();
+
+      await Subscription.findOneAndUpdate(
+        { stripeSubscriptionId: stripeSubscription.id },
+        {
+          status: stripeSubscription.status,
+          currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+        }
+      );
+    } catch (err) {
+      console.error('Failed to update subscription from Stripe webhook:', err);
+      return NextResponse.json({ error: 'Failed to process subscription update' }, { status: 500 });
     }
   }
 

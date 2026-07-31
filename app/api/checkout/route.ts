@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { getSession } from '@/lib/auth';
 import { notifyAdmin } from '@/lib/notifications';
+import { connectToDatabase } from '@/lib/db';
+import { Subscription } from '@/lib/models/Subscription';
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,6 +25,21 @@ export async function POST(req: NextRequest) {
 
     const origin = req.nextUrl.origin;
 
+    // Determine the member discount server-side — never trust a discount value sent from the client.
+    let discountPercent = 0;
+    if (authSession?.email) {
+      await connectToDatabase();
+      const sub = await Subscription.findOne({ userEmail: authSession.email.toLowerCase() });
+      const isActive =
+        !!sub &&
+        ['active', 'trialing'].includes(sub.status) &&
+        (!sub.currentPeriodEnd || new Date(sub.currentPeriodEnd) > new Date());
+
+      if (isActive) {
+        discountPercent = Number(process.env.SUBSCRIPTION_DISCOUNT_PERCENT || 0);
+      }
+    }
+
     const toAbsoluteUrl = (url?: string) => {
       if (!url) return undefined;
       if (/^https?:\/\//i.test(url)) return url;
@@ -33,18 +50,24 @@ export async function POST(req: NextRequest) {
       (sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1),
       0
     );
+    const discountedItemsTotal =
+      discountPercent > 0 ? itemsTotal * (1 - discountPercent / 100) : itemsTotal;
 
     const line_items = cartItems.map((item: any) => {
       const imageUrl = toAbsoluteUrl(item.image);
+      const basePrice = item.price || 0;
+      const discountedPrice =
+        discountPercent > 0 ? basePrice * (1 - discountPercent / 100) : basePrice;
 
       return {
         price_data: {
           currency: 'usd',
           product_data: {
-            name: item.name,
+            name:
+              discountPercent > 0 ? `${item.name} (${discountPercent}% member discount)` : item.name,
             images: imageUrl ? [imageUrl] : undefined,
           },
-          unit_amount: Math.round((item.price || 0) * 100),
+          unit_amount: Math.round(discountedPrice * 100),
         },
         quantity: item.quantity || 1,
       };
@@ -70,6 +93,7 @@ export async function POST(req: NextRequest) {
       metadata: {
         userEmail: customerEmail || 'guest',
         itemCount: String(cartItems.length),
+        discountPercent: String(discountPercent),
       },
     });
 
@@ -77,7 +101,9 @@ export async function POST(req: NextRequest) {
       title: 'Checkout Started',
       message: `${customerEmail || 'A guest user'} initiated checkout for ${
         cartItems.length
-      } item(s) ($${(itemsTotal + 15).toFixed(2)})`,
+      } item(s) ($${(discountedItemsTotal + 15).toFixed(2)}${
+        discountPercent > 0 ? `, ${discountPercent}% member discount applied` : ''
+      })`,
     });
 
     return NextResponse.json({ url: checkoutSession.url });
