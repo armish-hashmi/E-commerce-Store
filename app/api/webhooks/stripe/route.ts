@@ -3,28 +3,10 @@ import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe';
 import { connectToDatabase } from '@/lib/db';
 import { Order } from '@/lib/models/Order';
-import { Subscription } from '@/lib/models/Subscription';
-import { SubscriptionEvent } from '@/lib/models/SubscriptionEvent';
-import { notifyAdmin, notifyUser } from '@/lib/notifications';
+import { notifyAdmin } from '@/lib/notifications';
+import { getResend } from '@/lib/resend';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
-
-// Stripe moved `current_period_end` from the subscription object to the
-// subscription's first item in newer API versions. This helper works
-// regardless of which version your Stripe account/SDK is pinned to.
-function getCurrentPeriodEnd(subscription: Stripe.Subscription): Date | undefined {
-  const topLevel = (subscription as any).current_period_end;
-  if (typeof topLevel === 'number') {
-    return new Date(topLevel * 1000);
-  }
-
-  const itemLevel = (subscription as any).items?.data?.[0]?.current_period_end;
-  if (typeof itemLevel === 'number') {
-    return new Date(itemLevel * 1000);
-  }
-
-  return undefined;
-}
 
 export async function POST(req: NextRequest) {
   const stripe = getStripe();
@@ -47,65 +29,21 @@ export async function POST(req: NextRequest) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
 
-    // Subscription checkouts are handled separately from one-time product orders.
-    if (session.mode === 'subscription') {
-      try {
-        await connectToDatabase();
-
-        const customerId =
-          typeof session.customer === 'string' ? session.customer : session.customer?.id;
-        const subscriptionId =
-          typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
-        const email = session.customer_details?.email || session.metadata?.userEmail || '';
-
-        if (customerId && subscriptionId && email) {
-          const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
-
-          await Subscription.findOneAndUpdate(
-            { userEmail: email.toLowerCase() },
-            {
-              userEmail: email.toLowerCase(),
-              stripeCustomerId: customerId,
-              stripeSubscriptionId: subscriptionId,
-              status: stripeSubscription.status,
-              cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end || false,
-              currentPeriodEnd: getCurrentPeriodEnd(stripeSubscription),
-            },
-            { upsert: true, new: true }
-          );
-
-          await SubscriptionEvent.create({
-            userEmail: email.toLowerCase(),
-            stripeSubscriptionId: subscriptionId,
-            eventType: 'created',
-            status: stripeSubscription.status,
-            currentPeriodEnd: getCurrentPeriodEnd(stripeSubscription),
-          });
-
-          await notifyUser(email, {
-            title: 'Subscription Active',
-            message: 'Your subscription is now active — enjoy your member discount!',
-          });
-        }
-      } catch (err) {
-        console.error('Failed to save subscription from Stripe webhook:', err);
-        return NextResponse.json({ error: 'Failed to process subscription' }, { status: 500 });
-      }
-
-      return NextResponse.json({ received: true });
-    }
-
     try {
-      // Re-fetch with line_items expanded — the webhook payload doesn't include them by default.
       const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
         expand: ['line_items'],
       });
 
       await connectToDatabase();
 
-      // Idempotency: Stripe may deliver the same event more than once.
       const existing = await Order.findOne({ stripeSessionId: fullSession.id });
       if (!existing) {
+        const orderItems = (fullSession.line_items?.data || []).map((item) => ({
+          name: item.description,
+          quantity: item.quantity,
+          amount: (item.amount_total || 0) / 100,
+        }));
+
         const newOrder = await Order.create({
           stripeSessionId: fullSession.id,
           paymentIntentId:
@@ -116,11 +54,7 @@ export async function POST(req: NextRequest) {
           amountTotal: (fullSession.amount_total || 0) / 100,
           currency: fullSession.currency,
           status: 'paid',
-          items: (fullSession.line_items?.data || []).map((item) => ({
-            name: item.description,
-            quantity: item.quantity,
-            amount: (item.amount_total || 0) / 100,
-          })),
+          items: orderItems,
         });
 
         await notifyAdmin({
@@ -128,49 +62,53 @@ export async function POST(req: NextRequest) {
           message: `New order from ${newOrder.customerEmail || 'a customer'} — $${newOrder.amountTotal.toFixed(2)}`,
           orderId: newOrder._id.toString(),
         });
-      }
-    } catch (err) {
-      console.error('Failed to save order from Stripe webhook:', err);
-      // Returning 500 here tells Stripe to retry the webhook later.
-      return NextResponse.json({ error: 'Failed to process order' }, { status: 500 });
-    }
-  }
 
-  if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
-    const stripeSubscription = event.data.object as Stripe.Subscription;
-
-    try {
-      await connectToDatabase();
-
-      const updated = await Subscription.findOneAndUpdate(
-        { stripeSubscriptionId: stripeSubscription.id },
-        {
-          status: stripeSubscription.status,
-          cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end || false,
-          currentPeriodEnd: getCurrentPeriodEnd(stripeSubscription),
-        },
-        { new: true }
-      );
-
-      if (updated) {
-        await SubscriptionEvent.create({
-          userEmail: updated.userEmail,
-          stripeSubscriptionId: stripeSubscription.id,
-          eventType: event.type === 'customer.subscription.deleted' ? 'canceled' : 'updated',
-          status: stripeSubscription.status,
-          currentPeriodEnd: getCurrentPeriodEnd(stripeSubscription),
-        });
-
-        if (event.type === 'customer.subscription.deleted' || stripeSubscription.status === 'canceled') {
-          await notifyUser(updated.userEmail, {
-            title: 'Subscription Canceled',
-            message: 'Your subscription has ended. You can resubscribe anytime.',
-          });
+        if (newOrder.customerEmail) {
+          try {
+            const resend = getResend();
+            await resend.emails.send({
+              from: 'Online Store <onboarding@resend.dev>',
+              to: newOrder.customerEmail,
+              subject: 'Order Confirmation',
+              html: `
+                <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+                  <h2>Thank you for your order!</h2>
+                  <p>We've received your order and it's being processed.</p>
+                  <table style="width:100%; border-collapse: collapse; margin: 20px 0;">
+                    <tbody>
+                      ${orderItems
+                        .map(
+                          (item) => `
+                        <tr>
+                          <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                            ${item.name} <span style="color:#9ca3af;">x${item.quantity}</span>
+                          </td>
+                          <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600;">
+                            $${item.amount.toFixed(2)}
+                          </td>
+                        </tr>
+                      `
+                        )
+                        .join('')}
+                    </tbody>
+                  </table>
+                  <p style="font-size: 16px; font-weight: 700; text-align: right;">
+                    Total: $${newOrder.amountTotal.toFixed(2)}
+                  </p>
+                  <p style="color:#6b7280; font-size: 13px; margin-top: 24px;">
+                    Order reference: ${newOrder._id.toString()}
+                  </p>
+                </div>
+              `,
+            });
+          } catch (emailErr) {
+            console.error('Failed to send order confirmation email:', emailErr);
+          }
         }
       }
     } catch (err) {
-      console.error('Failed to update subscription from Stripe webhook:', err);
-      return NextResponse.json({ error: 'Failed to process subscription update' }, { status: 500 });
+      console.error('Failed to save order from Stripe webhook:', err);
+      return NextResponse.json({ error: 'Failed to process order' }, { status: 500 });
     }
   }
 

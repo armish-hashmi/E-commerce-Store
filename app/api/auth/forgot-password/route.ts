@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     const resend = getResend();
     await resend.emails.send({
-      from: 'Your Store <onboarding@resend.dev>',  
+      from: 'Online Store <onboarding@resend.dev>',  
       to: user.email,
       subject: 'Reset your password',
       html: `

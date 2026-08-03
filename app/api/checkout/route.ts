@@ -25,7 +25,6 @@ export async function POST(req: NextRequest) {
 
     const origin = req.nextUrl.origin;
 
-    // Determine the member discount server-side — never trust a discount value sent from the client.
     let discountPercent = 0;
     if (authSession?.email) {
       await connectToDatabase();
