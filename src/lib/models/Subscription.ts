@@ -10,6 +10,7 @@ const SubscriptionSchema = new Schema(
       enum: ['active', 'trialing', 'past_due', 'canceled', 'unpaid', 'incomplete'],
       default: 'incomplete',
     },
+    cancelAtPeriodEnd: { type: Boolean, default: false },
     currentPeriodEnd: { type: Date },
   },
   { timestamps: true }

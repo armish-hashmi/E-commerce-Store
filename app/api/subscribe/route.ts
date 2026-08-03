@@ -9,6 +9,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'You must be logged in to subscribe' }, { status: 401 });
     }
 
+    if (authSession.role === 'admin') {
+      return NextResponse.json(
+        { error: 'Admin accounts cannot subscribe' },
+        { status: 403 }
+      );
+    }
+
     const priceId = process.env.STRIPE_SUBSCRIPTION_PRICE_ID;
     if (!priceId) {
       return NextResponse.json({ error: 'Subscription price is not configured' }, { status: 500 });

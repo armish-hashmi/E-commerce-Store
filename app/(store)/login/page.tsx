@@ -84,6 +84,7 @@ export default function LoginPage() {
             {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
           </div>
 
+
           <div>
             <label htmlFor="login-password" className="block text-sm font-medium text-gray-700">
               Password
@@ -98,6 +99,11 @@ export default function LoginPage() {
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             />
             {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password}</p>}
+            <div className="mt-1 text-right">
+              <Link href="/forgot-password" className="text-xs font-semibold text-indigo-600 hover:underline">
+                Forgot password?
+              </Link>
+            </div>
           </div>
 
           <button

@@ -4,11 +4,14 @@ import { getStripe } from '@/lib/stripe';
 import { connectToDatabase } from '@/lib/db';
 import { Order } from '@/lib/models/Order';
 import { Subscription } from '@/lib/models/Subscription';
+import { SubscriptionEvent } from '@/lib/models/SubscriptionEvent';
 import { notifyAdmin, notifyUser } from '@/lib/notifications';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
 
-
+// Stripe moved `current_period_end` from the subscription object to the
+// subscription's first item in newer API versions. This helper works
+// regardless of which version your Stripe account/SDK is pinned to.
 function getCurrentPeriodEnd(subscription: Stripe.Subscription): Date | undefined {
   const topLevel = (subscription as any).current_period_end;
   if (typeof topLevel === 'number') {
@@ -44,6 +47,7 @@ export async function POST(req: NextRequest) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
 
+    // Subscription checkouts are handled separately from one-time product orders.
     if (session.mode === 'subscription') {
       try {
         await connectToDatabase();
@@ -64,10 +68,19 @@ export async function POST(req: NextRequest) {
               stripeCustomerId: customerId,
               stripeSubscriptionId: subscriptionId,
               status: stripeSubscription.status,
+              cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end || false,
               currentPeriodEnd: getCurrentPeriodEnd(stripeSubscription),
             },
             { upsert: true, new: true }
           );
+
+          await SubscriptionEvent.create({
+            userEmail: email.toLowerCase(),
+            stripeSubscriptionId: subscriptionId,
+            eventType: 'created',
+            status: stripeSubscription.status,
+            currentPeriodEnd: getCurrentPeriodEnd(stripeSubscription),
+          });
 
           await notifyUser(email, {
             title: 'Subscription Active',
@@ -83,12 +96,14 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      // Re-fetch with line_items expanded — the webhook payload doesn't include them by default.
       const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
         expand: ['line_items'],
       });
 
       await connectToDatabase();
 
+      // Idempotency: Stripe may deliver the same event more than once.
       const existing = await Order.findOne({ stripeSessionId: fullSession.id });
       if (!existing) {
         const newOrder = await Order.create({
@@ -116,6 +131,7 @@ export async function POST(req: NextRequest) {
       }
     } catch (err) {
       console.error('Failed to save order from Stripe webhook:', err);
+      // Returning 500 here tells Stripe to retry the webhook later.
       return NextResponse.json({ error: 'Failed to process order' }, { status: 500 });
     }
   }
@@ -126,13 +142,32 @@ export async function POST(req: NextRequest) {
     try {
       await connectToDatabase();
 
-      await Subscription.findOneAndUpdate(
+      const updated = await Subscription.findOneAndUpdate(
         { stripeSubscriptionId: stripeSubscription.id },
         {
           status: stripeSubscription.status,
+          cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end || false,
           currentPeriodEnd: getCurrentPeriodEnd(stripeSubscription),
-        }
+        },
+        { new: true }
       );
+
+      if (updated) {
+        await SubscriptionEvent.create({
+          userEmail: updated.userEmail,
+          stripeSubscriptionId: stripeSubscription.id,
+          eventType: event.type === 'customer.subscription.deleted' ? 'canceled' : 'updated',
+          status: stripeSubscription.status,
+          currentPeriodEnd: getCurrentPeriodEnd(stripeSubscription),
+        });
+
+        if (event.type === 'customer.subscription.deleted' || stripeSubscription.status === 'canceled') {
+          await notifyUser(updated.userEmail, {
+            title: 'Subscription Canceled',
+            message: 'Your subscription has ended. You can resubscribe anytime.',
+          });
+        }
+      }
     } catch (err) {
       console.error('Failed to update subscription from Stripe webhook:', err);
       return NextResponse.json({ error: 'Failed to process subscription update' }, { status: 500 });

@@ -20,6 +20,7 @@ export async function GET() {
     return NextResponse.json({
       isSubscribed,
       status: sub?.status || null,
+      cancelAtPeriodEnd: sub?.cancelAtPeriodEnd || false,
       currentPeriodEnd: sub?.currentPeriodEnd || null,
     });
   } catch (error: any) {
