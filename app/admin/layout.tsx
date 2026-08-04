@@ -80,6 +80,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         >
           Subscriptions
         </Link>
+        <Link
+          href="/admin/chat"
+          onClick={closeMenu}
+          className={`${baseNavLinkClass} ${isActive('/admin/chat') ? activeNavLinkClass : inactiveNavLinkClass}`}
+        >
+          Chat
+        </Link>
       </nav>
 
       <div className="mt-auto pt-4 space-y-1 border-t border-gray-200">
@@ -129,7 +136,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             onClick={closeMenu}
             aria-hidden="true"
           />
-          <aside className="relative w-164 max-w-[80%] bg-white h-full p-6 shadow-xl overflow-y-auto">
+          <aside className="relative w-64 max-w-[80%] bg-white h-full p-6 shadow-xl overflow-y-auto">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">

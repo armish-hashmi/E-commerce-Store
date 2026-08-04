@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import NotificationBell from '@/components/NotificationBell';
+import ChatWidget from '@/components/ChatWidget';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -116,6 +117,7 @@ export default function Navbar() {
   };
 
   return (
+    <>
     <header ref={navRef} className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <Link
@@ -320,6 +322,7 @@ export default function Navbar() {
         </div>
       )}
     </header>
+    {isLoggedIn && !isAdmin && <ChatWidget isLoggedIn={isLoggedIn} />}
+    </>
   );
 }
-
