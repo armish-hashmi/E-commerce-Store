@@ -14,6 +14,7 @@ interface ConversationItem {
 
 interface ChatMessage {
   _id: string;
+  conversationId: string;
   sender: 'user' | 'admin';
   senderEmail: string;
   text: string;
@@ -67,7 +68,7 @@ export default function AdminChatPage() {
       socket.on('conversation_updated', fetchConversations);
 
       socket.on('new_message', (msg: ChatMessage) => {
-        if (msg.conversationId === activeIdRef.current || (msg as any).conversationId?.toString?.() === activeIdRef.current) {
+        if (msg.conversationId === activeIdRef.current) {
           setMessages((prev) => [...prev, msg]);
         }
       });
