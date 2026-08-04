@@ -20,30 +20,48 @@ export default function ChatWidget({ isLoggedIn }: { isLoggedIn: boolean }) {
   const [input, setInput] = useState('');
   const [adminTyping, setAdminTyping] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const socketRef = useRef<Socket | null>(null);
   const tokenRef = useRef<string | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isOpenRef = useRef(false);
 
   useEffect(() => {
-    if (!isLoggedIn || !isOpen || socketRef.current) return;
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  // Connect as soon as the user is logged in — not only when the panel is
+  // open — so messages (and the unread badge) can arrive in the background.
+  useEffect(() => {
+    if (!isLoggedIn || socketRef.current) return;
 
     let socket: Socket;
 
     (async () => {
       const token = await getChatToken();
-      if (!token) return;
+      if (!token) {
+        setChatError('Could not authenticate with chat server (no token). Try logging out and back in.');
+        return;
+      }
       tokenRef.current = token;
 
+      let convoId: string;
       try {
         const convo = await fetchChatJson('/api/conversations/me', token);
+        convoId = convo._id;
         setConversationId(convo._id);
 
         const history = await fetchChatJson(`/api/conversations/${convo._id}/messages`, token);
         setMessages(history);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to load chat history', err);
+        setChatError(
+          `Could not reach chat server: ${err.message || 'unknown error'}. Check NEXT_PUBLIC_CHAT_SERVER_URL.`
+        );
+        return;
       }
 
       socket = connectChatSocket(token);
@@ -51,9 +69,18 @@ export default function ChatWidget({ isLoggedIn }: { isLoggedIn: boolean }) {
 
       socket.on('connect', () => setConnected(true));
       socket.on('disconnect', () => setConnected(false));
+      socket.on('connect_error', (err: any) => {
+        console.error('Chat socket connection error', err);
+        setChatError(`Live connection failed: ${err.message || 'unknown error'}`);
+      });
 
       socket.on('new_message', (msg: ChatMessage) => {
         setMessages((prev) => [...prev, msg]);
+        // Only count it unread if it's from support (admin/AI) and the
+        // panel isn't currently open and visible to the user.
+        if (msg.sender === 'admin' && !isOpenRef.current) {
+          setUnreadCount((prev) => prev + 1);
+        }
       });
 
       socket.on('typing_indicator', ({ typing, role }: { typing: boolean; role: string }) => {
@@ -65,11 +92,19 @@ export default function ChatWidget({ isLoggedIn }: { isLoggedIn: boolean }) {
       socketRef.current?.disconnect();
       socketRef.current = null;
     };
-  }, [isLoggedIn, isOpen]);
+  }, [isLoggedIn]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, adminTyping]);
+
+  const handleOpen = () => {
+    setIsOpen(true);
+    setUnreadCount(0);
+    if (socketRef.current && conversationId) {
+      socketRef.current.emit('mark_read', { conversationId });
+    }
+  };
 
   const handleSend = () => {
     if (!input.trim() || !socketRef.current || !conversationId) return;
@@ -109,7 +144,11 @@ export default function ChatWidget({ isLoggedIn }: { isLoggedIn: boolean }) {
           </div>
 
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
-            {messages.length === 0 ? (
+            {chatError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {chatError}
+              </div>
+            ) : messages.length === 0 ? (
               <div className="pt-10 text-center text-xs text-gray-400">
                 Send a message to start the conversation.
               </div>
@@ -169,13 +208,13 @@ export default function ChatWidget({ isLoggedIn }: { isLoggedIn: boolean }) {
               value={input}
               onChange={(e) => handleTyping(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={connected ? 'Type a message...' : 'Connecting...'}
-              disabled={!connected}
+              placeholder={chatError ? 'Chat unavailable' : connected ? 'Type a message...' : 'Connecting...'}
+              disabled={!connected || !conversationId}
               className="flex-1 rounded-full border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none disabled:opacity-50"
             />
             <button
               onClick={handleSend}
-              disabled={!connected || !input.trim()}
+              disabled={!connected || !conversationId || !input.trim()}
               className="rounded-full bg-indigo-600 p-2 text-white hover:bg-indigo-700 disabled:opacity-50"
               aria-label="Send message"
             >
@@ -187,8 +226,8 @@ export default function ChatWidget({ isLoggedIn }: { isLoggedIn: boolean }) {
         </div>
       ) : (
         <button
-          onClick={() => setIsOpen(true)}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-xl hover:bg-indigo-700 transition"
+          onClick={handleOpen}
+          className="relative flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-xl hover:bg-indigo-700 transition"
           aria-label="Open chat"
         >
           <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,6 +238,11 @@ export default function ChatWidget({ isLoggedIn }: { isLoggedIn: boolean }) {
               d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
             />
           </svg>
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white ring-2 ring-white">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
         </button>
       )}
     </div>

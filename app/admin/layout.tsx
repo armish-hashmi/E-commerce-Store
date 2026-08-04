@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
+import type { Socket } from 'socket.io-client';
 import NotificationBell from '@/components/NotificationBell';
+import { getChatToken, connectChatSocket, fetchChatJson } from '@/lib/chatClient';
 
 const baseNavLinkClass =
   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition';
@@ -21,6 +23,50 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [chatUnreadTotal, setChatUnreadTotal] = useState(0);
+  const socketRef = useRef<Socket | null>(null);
+  const tokenRef = useRef<string | null>(null);
+
+  const refreshChatUnread = async () => {
+    if (!tokenRef.current) return;
+    try {
+      const conversations = await fetchChatJson('/api/conversations', tokenRef.current);
+      const total = conversations.reduce(
+        (sum: number, c: any) => sum + (c.unreadByAdmin || 0),
+        0
+      );
+      setChatUnreadTotal(total);
+    } catch (err) {
+      console.error('Failed to load chat unread count', err);
+    }
+  };
+
+  useEffect(() => {
+    (async () => {
+      const token = await getChatToken();
+      if (!token) return;
+      tokenRef.current = token;
+
+      await refreshChatUnread();
+
+      const socket = connectChatSocket(token);
+      socketRef.current = socket;
+      socket.on('conversation_updated', refreshChatUnread);
+    })();
+
+    return () => {
+      socketRef.current?.disconnect();
+      socketRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Clear the badge once the admin actually visits the chat page.
+  useEffect(() => {
+    if (pathname === '/admin/chat') {
+      setChatUnreadTotal(0);
+    }
+  }, [pathname]);
 
   const closeMenu = () => setIsMenuOpen(false);
 
@@ -83,9 +129,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <Link
           href="/admin/chat"
           onClick={closeMenu}
-          className={`${baseNavLinkClass} ${isActive('/admin/chat') ? activeNavLinkClass : inactiveNavLinkClass}`}
+          className={`${baseNavLinkClass} ${isActive('/admin/chat') ? activeNavLinkClass : inactiveNavLinkClass} justify-between`}
         >
-          Chat
+          <span>Chat</span>
+          {chatUnreadTotal > 0 && (
+            <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">
+              {chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}
+            </span>
+          )}
         </Link>
       </nav>
 
