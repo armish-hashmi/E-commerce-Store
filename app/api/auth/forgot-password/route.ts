@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { connectToDatabase } from '@/lib/db';
 import { User } from '@/lib/models/User';
-import { getResend } from '@/lib/resend';
+import { sendMail } from '@/lib/mailer';
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
 
     user.resetPasswordToken = hashedToken;
-    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
     await user.save();
 
     const origin = req.nextUrl.origin;
@@ -34,9 +34,7 @@ export async function POST(req: NextRequest) {
       user.email
     )}`;
 
-    const resend = getResend();
-    await resend.emails.send({
-      from: 'Online Store <onboarding@resend.dev>',  
+    await sendMail({
       to: user.email,
       subject: 'Reset your password',
       html: `

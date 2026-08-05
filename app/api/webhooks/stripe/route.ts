@@ -4,7 +4,7 @@ import { getStripe } from '@/lib/stripe';
 import { connectToDatabase } from '@/lib/db';
 import { Order } from '@/lib/models/Order';
 import { notifyAdmin } from '@/lib/notifications';
-import { getResend } from '@/lib/resend';
+import { sendMail } from '@/lib/mailer';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
 
@@ -31,18 +31,27 @@ export async function POST(req: NextRequest) {
 
     try {
       const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
-        expand: ['line_items'],
+        expand: ['line_items', 'line_items.data.price.product'],
       });
 
       await connectToDatabase();
 
       const existing = await Order.findOne({ stripeSessionId: fullSession.id });
       if (!existing) {
-        const orderItems = (fullSession.line_items?.data || []).map((item) => ({
-          name: item.description,
-          quantity: item.quantity,
-          amount: (item.amount_total || 0) / 100,
-        }));
+        const orderItems = (fullSession.line_items?.data || []).map((item: any) => {
+          const product = item.price?.product;
+          const productId =
+            product && typeof product !== 'string' && !product.deleted
+              ? product.metadata?.productId
+              : undefined;
+
+          return {
+            productId: productId || undefined,
+            name: item.description,
+            quantity: item.quantity,
+            amount: (item.amount_total || 0) / 100,
+          };
+        });
 
         const newOrder = await Order.create({
           stripeSessionId: fullSession.id,
@@ -65,9 +74,7 @@ export async function POST(req: NextRequest) {
 
         if (newOrder.customerEmail) {
           try {
-            const resend = getResend();
-            await resend.emails.send({
-              from: 'Online Store <onboarding@resend.dev>',
+            await sendMail({
               to: newOrder.customerEmail,
               subject: 'Order Confirmation',
               html: `
