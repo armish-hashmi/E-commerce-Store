@@ -26,7 +26,7 @@ export async function sendMail(options: {
 }) {
   const mailer = getMailer();
   await mailer.sendMail({
-    from: `Your Store <${process.env.GMAIL_USER}>`,
+    from: `Online Store <${process.env.GMAIL_USER}>`,
     to: options.to,
     subject: options.subject,
     html: options.html,
