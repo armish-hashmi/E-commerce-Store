@@ -98,12 +98,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         >
           Dashboard
         </Link>
+        <div className={`${baseNavLinkClass} ${isActive('/admin/notifications') ? activeNavLinkClass : inactiveNavLinkClass} justify-between`}>
+          <Link href="/admin/notifications" onClick={closeMenu} className="flex-1">
+            Notifications
+          </Link>
+          <NotificationBell recipientType="admin" />
+        </div>
         <Link
           href="/admin/orders"
           onClick={closeMenu}
           className={`${baseNavLinkClass} ${isActive('/admin/orders') ? activeNavLinkClass : inactiveNavLinkClass}`}
         >
           Orders Management
+        </Link>
+        <Link
+          href="/admin/users"
+          onClick={closeMenu}
+          className={`${baseNavLinkClass} ${isActive('/admin/users') ? activeNavLinkClass : inactiveNavLinkClass}`}
+        >
+          Users
         </Link>
         <Link
           href="/admin/products"
@@ -125,6 +138,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           className={`${baseNavLinkClass} ${isActive('/admin/subscriptions') ? activeNavLinkClass : inactiveNavLinkClass}`}
         >
           Subscriptions
+        </Link>
+        <Link
+          href="/admin/coupons"
+          onClick={closeMenu}
+          className={`${baseNavLinkClass} ${isActive('/admin/coupons') ? activeNavLinkClass : inactiveNavLinkClass}`}
+        >
+          Coupons & Discounts
         </Link>
         <Link
           href="/admin/chat"
@@ -165,19 +185,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
           <span className="text-lg font-bold text-gray-900">Admin Control</span>
         </div>
-        <div className="flex items-center gap-3">
-          <NotificationBell recipientType="admin" />
-          <button
-            type="button"
-            onClick={() => setIsMenuOpen(true)}
-            aria-label="Open menu"
-            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
-          >
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setIsMenuOpen(true)}
+          aria-label="Open menu"
+          className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
+        >
+          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
       </div>
 
       {isMenuOpen && (
@@ -212,14 +229,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       )}
 
       <aside className="hidden md:flex md:w-64 md:sticky md:top-0 md:h-screen bg-white border-r border-gray-200 p-6 flex-shrink-0 flex-col overflow-y-auto">
-        <div className="flex items-center justify-between gap-2 mb-8">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
-              A
-            </div>
-            <span className="text-xl font-bold text-gray-900">Admin Control</span>
+        <div className="flex items-center gap-2 mb-8">
+          <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+            A
           </div>
-          <NotificationBell recipientType="admin" />
+          <span className="text-xl font-bold text-gray-900">Admin Control</span>
         </div>
         <NavLinks />
       </aside>

@@ -34,6 +34,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (user.isDisabled) {
+      return NextResponse.json(
+        { error: 'This account has been disabled. Please contact support if you believe this is a mistake.' },
+        { status: 403 }
+      );
+    }
+
     const token = await signToken({
       userId: user._id.toString(),
       email: user.email,

@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth';
 import { notifyAdmin } from '@/lib/notifications';
 import { connectToDatabase } from '@/lib/db';
 import { Subscription } from '@/lib/models/Subscription';
+import { validateCoupon } from '@/lib/couponValidation';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
     }
 
     const stripe = getStripe();
-    const { cartItems } = await req.json();
+    const { cartItems, couponCode } = await req.json();
 
     if (!Array.isArray(cartItems) || cartItems.length === 0) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 });
@@ -74,10 +75,38 @@ export async function POST(req: NextRequest) {
 
     const customerEmail = authSession?.email;
 
+    let stripeDiscounts: { coupon: string }[] | undefined;
+    let appliedCouponCode: string | null = null;
+    let couponDiscountAmount = 0;
+
+    if (couponCode) {
+      await connectToDatabase();
+      const result = await validateCoupon(couponCode, discountedItemsTotal);
+
+      if (!result.valid) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
+
+      appliedCouponCode = result.coupon.code;
+      couponDiscountAmount = result.discountAmount || 0;
+
+      const stripeCoupon =
+        result.coupon.type === 'percentage'
+          ? await stripe.coupons.create({ percent_off: result.coupon.value, duration: 'once' })
+          : await stripe.coupons.create({
+              amount_off: Math.round(couponDiscountAmount * 100),
+              currency: 'usd',
+              duration: 'once',
+            });
+
+      stripeDiscounts = [{ coupon: stripeCoupon.id }];
+    }
+
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items,
       customer_email: customerEmail,
+      discounts: stripeDiscounts,
       shipping_options: [
         {
           shipping_rate_data: {
@@ -93,6 +122,8 @@ export async function POST(req: NextRequest) {
         userEmail: customerEmail || 'guest',
         itemCount: String(cartItems.length),
         discountPercent: String(discountPercent),
+        couponCode: appliedCouponCode || '',
+        couponDiscountAmount: String(couponDiscountAmount),
       },
     });
 
@@ -100,9 +131,9 @@ export async function POST(req: NextRequest) {
       title: 'Checkout Started',
       message: `${customerEmail || 'A guest user'} initiated checkout for ${
         cartItems.length
-      } item(s) ($${(discountedItemsTotal + 15).toFixed(2)}${
-        discountPercent > 0 ? `, ${discountPercent}% member discount applied` : ''
-      })`,
+      } item(s) ($${(discountedItemsTotal + 15 - couponDiscountAmount).toFixed(2)}${
+        discountPercent > 0 ? `, ${discountPercent}% member discount` : ''
+      }${appliedCouponCode ? `, coupon ${appliedCouponCode} applied` : ''})`,
     });
 
     return NextResponse.json({ url: checkoutSession.url });

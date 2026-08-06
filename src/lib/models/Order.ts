@@ -21,6 +21,8 @@ const OrderSchema = new Schema(
       enum: ['paid', 'accepted', 'rejected', 'refunded'],
       default: 'paid',
     },
+    couponCode: { type: String },
+    couponDiscountAmount: { type: Number },
     items: [OrderItemSchema],
   },
   { timestamps: true }

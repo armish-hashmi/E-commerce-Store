@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { MOCK_PRODUCTS } from '@/data/mockData';
+import ReviewSection from '@/components/ReviewSection';
 
 export default function ProductDetailPage({
   params,
@@ -17,6 +18,7 @@ export default function ProductDetailPage({
   const [activeTab, setActiveTab] = useState<'description' | 'reviews'>('description');
   const [isAdded, setIsAdded] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
+  const [reviewStats, setReviewStats] = useState<{ averageRating: number; totalReviews: number } | null>(null);
 
   useEffect(() => {
     async function fetchProduct() {
@@ -50,6 +52,22 @@ export default function ProductDetailPage({
       );
       setIsWishlisted(exists);
     }
+  }, [product]);
+
+  useEffect(() => {
+    async function fetchReviewStats() {
+      if (!product?.id) return;
+      try {
+        const res = await fetch(`/api/reviews?productId=${product.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setReviewStats({ averageRating: data.averageRating || 0, totalReviews: data.totalReviews || 0 });
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    fetchReviewStats();
   }, [product]);
 
   const handleAddToCart = () => {
@@ -148,13 +166,18 @@ export default function ProductDetailPage({
               {product.category}
             </span>
             <h1 className="mt-3 text-3xl font-extrabold text-gray-900 sm:text-4xl">{product.name}</h1>
-            
+
             <div className="mt-3 flex items-center space-x-2">
               <div className="flex text-amber-400">
-                {'★'.repeat(Math.floor(product.rating || 5))}
+                {'★'.repeat(Math.round(reviewStats?.averageRating || 0))}
+                {'☆'.repeat(5 - Math.round(reviewStats?.averageRating || 0))}
               </div>
-              <span className="text-sm font-semibold text-gray-700">{product.rating || 5}</span>
-              <span className="text-sm text-gray-400">({product.reviewsCount || 0} customer reviews)</span>
+              <span className="text-sm font-semibold text-gray-700">
+                {reviewStats?.averageRating ? reviewStats.averageRating.toFixed(1) : 'No ratings yet'}
+              </span>
+              <span className="text-sm text-gray-400">
+                ({reviewStats?.totalReviews || 0} customer review{reviewStats?.totalReviews !== 1 ? 's' : ''})
+              </span>
             </div>
 
             <div className="mt-6 flex items-baseline space-x-3">
@@ -256,24 +279,18 @@ export default function ProductDetailPage({
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            Reviews ({product.reviewsCount || 0})
+            Reviews ({reviewStats?.totalReviews || 0})
           </button>
         </div>
 
         <div className="py-6 text-gray-600">
           {activeTab === 'description' ? (
             <p>
-              Engineered with premium materials designed for daily use. Includes standard 1-year limited warranty, high-grade finish, and tested compatibility across popular accessories.
+              {product.description ||
+                'No detailed description available for this product yet.'}
             </p>
           ) : (
-            <div className="space-y-4">
-              <div className="rounded-lg bg-gray-50 p-4 border border-gray-100">
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-800">Sarah M.</span>
-                </div>
-                <p className="mt-2 text-sm">Exceeded my expectations! Build quality is top-notch and arrived fast.</p>
-              </div>
-            </div>
+            <ReviewSection productId={product.id} />
           )}
         </div>
       </div>

@@ -23,7 +23,8 @@ interface Order {
 
 const statusStyles: Record<string, string> = {
   paid: 'bg-amber-50 text-amber-700 border border-amber-200',
-  accepted: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  accepted: 'bg-blue-50 text-blue-700 border border-blue-200',
+  delivered: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
   rejected: 'bg-red-50 text-red-700 border border-red-200',
   refunded: 'bg-gray-100 text-gray-600 border border-gray-200',
 };
@@ -68,6 +69,25 @@ export default function AdminOrdersPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'accepted' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update order');
+      setOrders((prev) => prev.map((o) => (o._id === id ? data : o)));
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  const handleMarkDelivered = async (id: string) => {
+    setActioningId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/orders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'delivered' }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update order');
@@ -234,6 +254,15 @@ export default function AdminOrdersPage() {
                             Reject
                           </button>
                         </>
+                      )}
+                      {order.status === 'accepted' && (
+                        <button
+                          onClick={() => handleMarkDelivered(order._id)}
+                          disabled={actioningId === order._id}
+                          className="text-indigo-600 hover:underline font-medium disabled:opacity-50"
+                        >
+                          Mark Delivered
+                        </button>
                       )}
                       {order.status !== 'refunded' && (
                         <button

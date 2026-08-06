@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import {
   collection,
   query,
@@ -14,10 +15,9 @@ import { db } from '@/lib/firebase-client';
 
 interface NotificationDoc {
   id: string;
-  title?: string;
   message: string;
-  orderId?: string;
-  isRead?: boolean;
+  orderId: string;
+  read: boolean;
   createdAt: any;
 }
 
@@ -29,60 +29,43 @@ export default function NotificationBell({
   recipientEmail?: string | null;
 }) {
   const [notifications, setNotifications] = useState<NotificationDoc[]>([]);
-  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const normalizedEmail = recipientEmail?.toLowerCase().trim();
-
-    if (recipientType === 'user' && !normalizedEmail) {
+    if (recipientType === 'user' && !recipientEmail) {
       setNotifications([]);
       return;
     }
 
-    let unsubscribe: (() => void) | undefined;
-    let retryTimeout: ReturnType<typeof setTimeout> | undefined;
-    let cancelled = false;
-
-    const subscribe = () => {
-      const q =
-        recipientType === 'admin'
-          ? query(
-              collection(db, 'notifications'),
-              where('recipientType', '==', 'admin'),
-              orderBy('createdAt', 'desc')
-            )
-          : query(
-              collection(db, 'notifications'),
-              where('recipientType', '==', 'user'),
-              where('recipientEmail', '==', normalizedEmail),
-              orderBy('createdAt', 'desc')
-            );
-
-      unsubscribe = onSnapshot(
-        q,
-        (snapshot) => {
-          const items = snapshot.docs.map(
-            (d) => ({ id: d.id, ...d.data() } as NotificationDoc)
+    const q =
+      recipientType === 'admin'
+        ? query(
+            collection(db, 'notifications'),
+            where('recipientType', '==', 'admin'),
+            orderBy('createdAt', 'desc')
+          )
+        : query(
+            collection(db, 'notifications'),
+            where('recipientType', '==', 'user'),
+            where('recipientEmail', '==', recipientEmail),
+            orderBy('createdAt', 'desc')
           );
-          setNotifications(items.slice(0, 20));
-        },
-        (err) => {
-          console.error('Notification listener error:', err);
-          if (!cancelled) {
-            retryTimeout = setTimeout(subscribe, 5000);
-          }
-        }
-      );
-    };
 
-    subscribe();
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const items = snapshot.docs.map(
+          (d) => ({ id: d.id, ...d.data() } as NotificationDoc)
+        );
+        setNotifications(items.slice(0, 20));
+      },
+      (err) => {
+        console.error('Notification listener error:', err);
+      }
+    );
 
-    return () => {
-      cancelled = true;
-      if (retryTimeout) clearTimeout(retryTimeout);
-      unsubscribe?.();
-    };
+    return () => unsubscribe();
   }, [recipientType, recipientEmail]);
 
   useEffect(() => {
@@ -95,11 +78,11 @@ export default function NotificationBell({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const handleMarkRead = async (id: string) => {
     try {
-      await updateDoc(doc(db, 'notifications', id), { isRead: true });
+      await updateDoc(doc(db, 'notifications', id), { read: true });
     } catch (err) {
       console.error('Failed to mark notification as read:', err);
     }
@@ -111,7 +94,7 @@ export default function NotificationBell({
         type="button"
         onClick={() => setIsOpen((v) => !v)}
         aria-label="Notifications"
-        className="relative p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition focus:outline-none"
+        className="relative p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition"
       >
         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -129,46 +112,45 @@ export default function NotificationBell({
       </button>
 
       {isOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-40 sm:hidden"
-            onClick={() => setIsOpen(false)}
-          />
-
-          <div className="fixed left-6 right-6 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-64 sm:max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200 bg-white shadow-xl z-50 overflow-hidden flex flex-col max-h-[80vh]">
-            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-gray-100 bg-gray-50/50">
-              <span className="font-semibold text-xs text-gray-900">
-                Notifications
-              </span>
-            </div>
-
-            <div className="max-h-80 overflow-y-auto divide-y divide-gray-100">
-              {notifications.length === 0 ? (
-                <div className="px-3 py-5 text-center text-xs text-gray-400">
-                  No notifications yet.
-                </div>
-              ) : (
-                notifications.map((n) => (
-                  <button
-                    key={n.id}
-                    type="button"
-                    onClick={() => handleMarkRead(n.id)}
-                    className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition ${
-                      n.isRead ? 'text-gray-500' : 'text-gray-900 bg-indigo-50/40 font-medium'
-                    }`}
-                  >
-                    {n.message}
-                    {n.createdAt?.toDate && (
-                      <div className="mt-1 text-xs text-gray-400 font-normal">
-                        {n.createdAt.toDate().toLocaleString()}
-                      </div>
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
+        <div className="absolute right-0 mt-2 w-80 max-w-[90vw] rounded-xl border border-gray-200 bg-white shadow-lg z-50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-900">
+            Notifications
           </div>
-        </>
+          <div className="max-h-80 overflow-y-auto divide-y divide-gray-100">
+            {notifications.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-gray-400">
+                No notifications yet.
+              </div>
+            ) : (
+              notifications.map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => handleMarkRead(n.id)}
+                  className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition ${
+                    n.read ? 'text-gray-500' : 'text-gray-900 bg-indigo-50/40 font-medium'
+                  }`}
+                >
+                  {n.message}
+                  {n.createdAt?.toDate && (
+                    <div className="mt-1 text-xs text-gray-400 font-normal">
+                      {n.createdAt.toDate().toLocaleString()}
+                    </div>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+          {recipientType === 'admin' && (
+            <Link
+              href="/admin/notifications"
+              onClick={() => setIsOpen(false)}
+              className="block border-t border-gray-100 px-4 py-2.5 text-center text-xs font-semibold text-indigo-600 hover:bg-gray-50"
+            >
+              View all notifications
+            </Link>
+          )}
+        </div>
       )}
     </div>
   );
