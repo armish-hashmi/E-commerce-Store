@@ -1,20 +1,32 @@
-import { Schema, model, models } from 'mongoose';
+import { NextRequest, NextResponse } from 'next/server';
+import { connectToDatabase } from '@/lib/db';
+import { Review } from '@/lib/models/Review';
+import { getSession } from '@/lib/auth';
 
-const ReviewSchema = new Schema(
-  {
-    productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
-    orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
-    userEmail: { type: String, required: true },
-    userName: { type: String },
-    rating: { type: Number, required: true, min: 1, max: 5 },
-    comment: { type: String, default: '' },
-    helpfulCount: { type: Number, default: 0 },
-    helpfulVoters: [{ type: String }],
-    hidden: { type: Boolean, default: false },
-  },
-  { timestamps: true }
-);
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-ReviewSchema.index({ productId: 1, orderId: 1 }, { unique: true });
+    const { id } = await params;
+    await connectToDatabase();
 
-export const Review = models.Review || model('Review', ReviewSchema);
+    const review = await Review.findById(id);
+    if (!review) {
+      return NextResponse.json({ error: 'Review not found' }, { status: 404 });
+    }
+    if (review.userEmail.toLowerCase() !== session.email?.toLowerCase() && session.role !== 'admin') {
+      return NextResponse.json({ error: 'You can only delete your own review' }, { status: 403 });
+    }
+
+    await Review.findByIdAndDelete(id);
+    return NextResponse.json({ message: 'Review deleted' });
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || 'Failed to delete review' }, { status: 500 });
+  }
+}
