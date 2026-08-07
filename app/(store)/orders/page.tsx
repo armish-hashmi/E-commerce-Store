@@ -43,7 +43,7 @@ export default function OrdersPage() {
   useEffect(() => {
     async function fetchOrders() {
       try {
-        const res = await fetch('/api/orders');
+        const res = await fetch('/api/admin/orders');
         const data = await res.json();
 
         if (res.status === 401) {

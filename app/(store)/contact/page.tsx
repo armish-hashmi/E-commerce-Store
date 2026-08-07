@@ -21,7 +21,7 @@ export default function ContactPage() {
     setSubmitting(true);
 
     try {
-      const res = await fetch('/api/contact', {
+      const res = await fetch('/api/admin/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -40,9 +40,7 @@ export default function ContactPage() {
       setSubmitted(true);
       formRef.current?.reset();
 
-      // Fix: show the success message temporarily, then reset back to the
-      // empty form instead of leaving the user stuck on the confirmation
-      // screen with no way to send another message.
+     
       setTimeout(() => {
         setSubmitted(false);
       }, 3000);
