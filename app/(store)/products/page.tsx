@@ -2,11 +2,12 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import ProductCard from '@/components/ui/ProductCard';
 import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '@/data/mockData';
 
 const FALLBACK_CATEGORY_NAMES = ['Electronics', 'Accessories', 'Furniture'];
-const PRODUCTS_PER_PAGE = 8;
+const PRODUCTS_PER_PAGE = 12;
 
 function ProductListingContent() {
   const searchParams = useSearchParams();
@@ -15,14 +16,20 @@ function ProductListingContent() {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl || 'All');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [products, setProducts] = useState<any[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
-  const [categoryNames, setCategoryNames] = useState<string[]>([]);
+  const [products, setProducts] = useState<any[]>(MOCK_PRODUCTS);
+  const [categoryNames, setCategoryNames] = useState<string[]>(
+    MOCK_CATEGORIES.map((c) => c.name)
+  );
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     setSelectedCategory(categoryFromUrl || 'All');
+    setCurrentPage(1);
   }, [categoryFromUrl]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   useEffect(() => {
     async function fetchProducts() {
@@ -36,12 +43,11 @@ function ProductListingContent() {
             return;
           }
         }
+        // DB reachable but empty (not seeded yet) — fall back to mock data.
         setProducts(MOCK_PRODUCTS);
       } catch (error) {
         console.error('Failed to fetch products from DB, falling back to mock data', error);
         setProducts(MOCK_PRODUCTS);
-      } finally {
-        setLoadingProducts(false);
       }
     }
 
@@ -67,10 +73,6 @@ function ProductListingContent() {
     fetchCategories();
   }, []);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, selectedCategory]);
-
   const triggerToast = (itemTitle: string) => {
     setToastMessage(`"${itemTitle}" added to cart!`);
     setTimeout(() => {
@@ -78,14 +80,14 @@ function ProductListingContent() {
     }, 3000);
   };
 
-  const handleAddToCart = (product: any) => {
+  const handleAddToCart = (product: any, quantity: number = 1) => {
     const savedCart: any[] = JSON.parse(localStorage.getItem('cart') || '[]');
     const existingIndex = savedCart.findIndex((item) => item.id === product.id);
 
     let updatedCart: any[];
     if (existingIndex > -1) {
       updatedCart = [...savedCart];
-      updatedCart[existingIndex].quantity = (updatedCart[existingIndex].quantity || 1) + 1;
+      updatedCart[existingIndex].quantity = (updatedCart[existingIndex].quantity || 1) + quantity;
     } else {
       updatedCart = [
         ...savedCart,
@@ -95,7 +97,7 @@ function ProductListingContent() {
           price: product.price,
           image: product.image,
           category: product.category,
-          quantity: 1,
+          quantity,
         },
       ];
     }
@@ -113,9 +115,10 @@ function ProductListingContent() {
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PRODUCTS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
   const paginated = filtered.slice(
-    (currentPage - 1) * PRODUCTS_PER_PAGE,
-    currentPage * PRODUCTS_PER_PAGE
+    (safePage - 1) * PRODUCTS_PER_PAGE,
+    safePage * PRODUCTS_PER_PAGE
   );
 
   const goToPage = (page: number) => {
@@ -134,7 +137,13 @@ function ProductListingContent() {
         </div>
       )}
 
-      <h1 className="text-3xl font-bold tracking-tight text-gray-900">All Products</h1>
+      <nav className="flex items-center space-x-2 text-sm text-gray-500">
+        <Link href="/" className="hover:text-indigo-600">Home</Link>
+        <span>/</span>
+        <span className="text-gray-900 font-medium">Shop</span>
+      </nav>
+
+      <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-900">All Products</h1>
 
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <input
@@ -149,7 +158,10 @@ function ProductListingContent() {
           {['All', ...categoryNames].map((cat) => (
             <button
               key={cat}
-              onClick={() => setSelectedCategory(cat)}
+              onClick={() => {
+                setSelectedCategory(cat);
+                setCurrentPage(1);
+              }}
               className={`rounded-full px-4 py-1.5 text-xs font-semibold transition whitespace-nowrap ${
                 selectedCategory === cat
                   ? 'bg-indigo-600 text-white'
@@ -162,58 +174,52 @@ function ProductListingContent() {
         </div>
       </div>
 
-      {loadingProducts ? (
-        <div className="py-20 text-center text-gray-500">Loading products...</div>
-      ) : (
-        <>
-          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {paginated.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onAddToCart={() => handleAddToCart(product)}
-              />
-            ))}
-          </div>
+      <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {paginated.map((product) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            onAddToCart={(quantity) => handleAddToCart(product, quantity)}
+          />
+        ))}
+      </div>
 
-          {filtered.length === 0 && (
-            <div className="py-20 text-center text-gray-500">No products match your criteria.</div>
-          )}
+      {filtered.length === 0 && (
+        <div className="py-20 text-center text-gray-500">No products match your criteria.</div>
+      )}
 
-          {filtered.length > 0 && totalPages > 1 && (
-            <div className="mt-10 flex items-center justify-center gap-2">
-              <button
-                onClick={() => goToPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition"
-              >
-                Previous
-              </button>
+      {totalPages > 1 && (
+        <div className="mt-10 flex items-center justify-center gap-2">
+          <button
+            onClick={() => goToPage(safePage - 1)}
+            disabled={safePage === 1}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
 
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  onClick={() => goToPage(page)}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                    currentPage === page
-                      ? 'bg-indigo-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <button
+              key={page}
+              onClick={() => goToPage(page)}
+              className={`h-9 w-9 rounded-lg text-sm font-semibold transition ${
+                page === safePage
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              {page}
+            </button>
+          ))}
 
-              <button
-                onClick={() => goToPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition"
-              >
-                Next
-              </button>
-            </div>
-          )}
-        </>
+          <button
+            onClick={() => goToPage(safePage + 1)}
+            disabled={safePage === totalPages}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
       )}
     </div>
   );

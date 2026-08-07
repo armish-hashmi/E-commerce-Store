@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import PasswordInput from '@/components/PasswordInput';
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -93,27 +94,27 @@ function ResetPasswordContent() {
               </div>
             )}
 
-            <div>
+           <div>
               <label className="block text-sm font-medium text-gray-700">New Password</label>
-              <input
-                type="password"
-                required
-                minLength={6}
+              <PasswordInput
+                id="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                autoComplete="new-password"
+                required
+                minLength={6}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
-              <input
-                type="password"
-                required
-                minLength={6}
+              <PasswordInput
+                id="confirm-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                autoComplete="new-password"
+                required
+                minLength={6}
               />
             </div>
 

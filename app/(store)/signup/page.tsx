@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import PasswordInput from '@/components/PasswordInput';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -30,7 +31,8 @@ export default function SignupPage() {
         throw new Error(data.error || 'Failed to create account');
       }
 
-      router.push('/login');
+      router.push('/');
+      router.refresh();
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
@@ -77,12 +79,13 @@ export default function SignupPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700">Password</label>
-            <input
-              type="password"
-              required
+            <PasswordInput
+              id="signup-password"
+              name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+              autoComplete="new-password"
+              required
             />
           </div>
 

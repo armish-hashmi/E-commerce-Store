@@ -11,7 +11,6 @@ interface ICategory {
   createdAt: string;
 }
 
-
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<ICategory[]>([]);
   const [name, setName] = useState('');
@@ -222,11 +221,17 @@ export default function AdminCategoriesPage() {
                   {categories.map((category) => (
                     <tr key={category._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 flex items-center gap-3 font-medium text-gray-900">
-                        <img
-                          src={category.image }
-                          alt={category.name}
-                          className="h-8 w-8 rounded-lg object-cover"
-                        />
+                        {category.image ? (
+                          <img
+                            src={category.image}
+                            alt={category.name}
+                            className="h-8 w-8 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div className="h-8 w-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs uppercase">
+                            {category.name.charAt(0)}
+                          </div>
+                        )}
                         {category.name}
                       </td>
                       <td className="px-6 py-4 font-mono text-xs text-gray-500">{category.slug}</td>

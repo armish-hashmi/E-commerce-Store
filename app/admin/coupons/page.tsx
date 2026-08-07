@@ -140,10 +140,10 @@ export default function AdminCouponsPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8 p-4 sm:p-6 lg:p-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Coupons & Discounts</h1>
-        <p className="text-sm text-gray-500">Create and manage discount codes for your store.</p>
+        <p className="text-sm text-gray-500 mt-1">Create and manage discount codes for your store.</p>
       </div>
 
       {error && (
@@ -155,8 +155,9 @@ export default function AdminCouponsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-1 bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-fit">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+        {/* Form Section */}
+        <div className="lg:col-span-1 bg-white p-5 sm:p-6 rounded-xl border border-gray-200 shadow-sm h-fit">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Create New Coupon</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -243,15 +244,16 @@ export default function AdminCouponsPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+              className="w-full bg-indigo-600 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 text-sm"
             >
               {submitting ? 'Creating...' : 'Create Coupon'}
             </button>
           </form>
         </div>
 
-        <div className="md:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-gray-100">
+        {/* Coupons View Section */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-gray-100">
             <h2 className="text-lg font-semibold text-gray-800">Existing Coupons</h2>
           </div>
 
@@ -262,60 +264,120 @@ export default function AdminCouponsPage() {
               No coupons yet. Create your first one using the form.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-gray-600">
-                <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-                  <tr>
-                    <th className="px-6 py-3">Code</th>
-                    <th className="px-6 py-3">Discount</th>
-                    <th className="px-6 py-3">Expiry</th>
-                    <th className="px-6 py-3">Usage</th>
-                    <th className="px-6 py-3">Status</th>
-                    <th className="px-6 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {coupons.map((coupon) => {
-                    const status = getCouponStatus(coupon);
-                    return (
-                      <tr key={coupon._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 font-mono font-semibold text-gray-900">{coupon.code}</td>
-                        <td className="px-6 py-4">
-                          {coupon.type === 'percentage' ? `${coupon.value}%` : `$${coupon.value.toFixed(2)}`}
-                        </td>
-                        <td className="px-6 py-4">
-                          {coupon.expiryDate ? new Date(coupon.expiryDate).toLocaleDateString() : 'Never'}
-                        </td>
-                        <td className="px-6 py-4">
-                          {coupon.usedCount} / {coupon.usageLimit ?? '∞'}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>
-                            {status.label}
+            <>
+              {/* Mobile Cards (Shown on small screens) */}
+              <div className="block md:hidden divide-y divide-gray-100">
+                {coupons.map((coupon) => {
+                  const status = getCouponStatus(coupon);
+                  return (
+                    <div key={coupon._id} className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-gray-900 text-base">
+                          {coupon.code}
+                        </span>
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${status.className}`}>
+                          {status.label}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                        <div>
+                          <span className="text-gray-400 block">Discount</span>
+                          <span className="font-medium text-gray-800">
+                            {coupon.type === 'percentage' ? `${coupon.value}%` : `$${coupon.value.toFixed(2)}`}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 text-right space-x-3">
-                          <button
-                            onClick={() => handleToggleActive(coupon)}
-                            disabled={actioningId === coupon._id}
-                            className="text-indigo-600 hover:underline font-medium disabled:opacity-50"
-                          >
-                            {coupon.isActive ? 'Disable' : 'Enable'}
-                          </button>
-                          <button
-                            onClick={() => handleDelete(coupon._id, coupon.code)}
-                            disabled={actioningId === coupon._id}
-                            className="text-red-500 hover:underline font-medium disabled:opacity-50"
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 block">Expiry</span>
+                          <span className="font-medium text-gray-800">
+                            {coupon.expiryDate ? new Date(coupon.expiryDate).toLocaleDateString() : 'Never'}
+                          </span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-gray-400 block">Usage Count</span>
+                          <span className="font-medium text-gray-800">
+                            {coupon.usedCount} / {coupon.usageLimit ?? '∞'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-4 pt-2 border-t border-gray-50 text-sm">
+                        <button
+                          onClick={() => handleToggleActive(coupon)}
+                          disabled={actioningId === coupon._id}
+                          className="text-indigo-600 hover:underline font-medium disabled:opacity-50"
+                        >
+                          {coupon.isActive ? 'Disable' : 'Enable'}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(coupon._id, coupon.code)}
+                          disabled={actioningId === coupon._id}
+                          className="text-red-500 hover:underline font-medium disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table (Shown on medium and larger screens) */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-sm text-gray-600">
+                  <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                    <tr>
+                      <th className="px-6 py-3">Code</th>
+                      <th className="px-6 py-3">Discount</th>
+                      <th className="px-6 py-3">Expiry</th>
+                      <th className="px-6 py-3">Usage</th>
+                      <th className="px-6 py-3">Status</th>
+                      <th className="px-6 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {coupons.map((coupon) => {
+                      const status = getCouponStatus(coupon);
+                      return (
+                        <tr key={coupon._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 font-mono font-semibold text-gray-900">{coupon.code}</td>
+                          <td className="px-6 py-4">
+                            {coupon.type === 'percentage' ? `${coupon.value}%` : `$${coupon.value.toFixed(2)}`}
+                          </td>
+                          <td className="px-6 py-4">
+                            {coupon.expiryDate ? new Date(coupon.expiryDate).toLocaleDateString() : 'Never'}
+                          </td>
+                          <td className="px-6 py-4">
+                            {coupon.usedCount} / {coupon.usageLimit ?? '∞'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>
+                              {status.label}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right space-x-3 whitespace-nowrap">
+                            <button
+                              onClick={() => handleToggleActive(coupon)}
+                              disabled={actioningId === coupon._id}
+                              className="text-indigo-600 hover:underline font-medium disabled:opacity-50"
+                            >
+                              {coupon.isActive ? 'Disable' : 'Enable'}
+                            </button>
+                            <button
+                              onClick={() => handleDelete(coupon._id, coupon.code)}
+                              disabled={actioningId === coupon._id}
+                              className="text-red-500 hover:underline font-medium disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>

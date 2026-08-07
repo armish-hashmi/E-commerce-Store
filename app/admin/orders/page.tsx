@@ -15,7 +15,7 @@ interface Order {
   customerEmail?: string;
   amountTotal: number;
   currency: string;
-  status: 'paid' | 'accepted' | 'rejected' | 'refunded';
+  status: 'paid' | 'accepted' | 'delivered' | 'rejected' | 'refunded';
   statusReason?: string;
   items: OrderItem[];
   createdAt: string;
@@ -23,8 +23,8 @@ interface Order {
 
 const statusStyles: Record<string, string> = {
   paid: 'bg-amber-50 text-amber-700 border border-amber-200',
-  accepted: 'bg-blue-50 text-blue-700 border border-blue-200',
-  delivered: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  accepted: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  delivered: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
   rejected: 'bg-red-50 text-red-700 border border-red-200',
   refunded: 'bg-gray-100 text-gray-600 border border-gray-200',
 };
@@ -46,7 +46,7 @@ export default function AdminOrdersPage() {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/orders');
+      const res = await fetch('/api/admin/orders');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load orders');
       setOrders(data);
@@ -61,33 +61,14 @@ export default function AdminOrdersPage() {
     fetchOrders();
   }, []);
 
-  const handleAccept = async (id: string) => {
+  const handleUpdateStatus = async (id: string, status: 'accepted' | 'delivered') => {
     setActioningId(id);
     setError(null);
     try {
-      const res = await fetch(`/api/orders/${id}`, {
+      const res = await fetch(`/api/admin/orders/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'accepted' }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update order');
-      setOrders((prev) => prev.map((o) => (o._id === id ? data : o)));
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setActioningId(null);
-    }
-  };
-
-  const handleMarkDelivered = async (id: string) => {
-    setActioningId(id);
-    setError(null);
-    try {
-      const res = await fetch(`/api/orders/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'delivered' }),
+        body: JSON.stringify({ status }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update order');
@@ -125,7 +106,7 @@ export default function AdminOrdersPage() {
 
     try {
       const url =
-        type === 'reject' ? `/api/orders/${orderId}` : `/api/orders/${orderId}/refund`;
+        type === 'reject' ? `/api/admin/orders/${orderId}` : `/api/admin/orders/${orderId}/refund`;
       const method = type === 'reject' ? 'PATCH' : 'POST';
       const body =
         type === 'reject'
@@ -240,7 +221,7 @@ export default function AdminOrdersPage() {
                       {order.status === 'paid' && (
                         <>
                           <button
-                            onClick={() => handleAccept(order._id)}
+                            onClick={() => handleUpdateStatus(order._id, 'accepted')}
                             disabled={actioningId === order._id}
                             className="text-emerald-600 hover:underline font-medium disabled:opacity-50"
                           >
@@ -257,7 +238,7 @@ export default function AdminOrdersPage() {
                       )}
                       {order.status === 'accepted' && (
                         <button
-                          onClick={() => handleMarkDelivered(order._id)}
+                          onClick={() => handleUpdateStatus(order._id, 'delivered')}
                           disabled={actioningId === order._id}
                           className="text-indigo-600 hover:underline font-medium disabled:opacity-50"
                         >

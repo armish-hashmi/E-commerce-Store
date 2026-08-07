@@ -16,6 +16,11 @@ export async function POST(
     }
 
     const { id } = await params;
+    const { reason } = await req.json().catch(() => ({ reason: undefined }));
+
+    if (!reason || !reason.trim()) {
+      return NextResponse.json({ error: 'A refund reason is required' }, { status: 400 });
+    }
 
     await connectToDatabase();
     const order = await Order.findById(id);
@@ -39,12 +44,15 @@ export async function POST(
     await stripe.refunds.create({ payment_intent: order.paymentIntentId });
 
     order.status = 'refunded';
+    order.statusReason = reason.trim();
     await order.save();
 
     if (order.customerEmail) {
       await notifyUser(order.customerEmail, {
         title: 'Order Refunded',
-        message: `Your order has been refunded.`,
+        message: `Your order has been refunded. Reason: ${reason.trim()} Your refund of $${order.amountTotal.toFixed(
+          2
+        )} will be returned to your original payment method within 5–10 business days.`,
         orderId: order._id.toString(),
       });
     }

@@ -37,8 +37,9 @@ export async function GET() {
     }
 
     await connectToDatabase();
-    const messages = await Contact.find({}).sort({ createdAt: -1 });
-    return NextResponse.json(messages);
+    const contacts = await Contact.find({}).sort({ createdAt: -1 });
+
+    return NextResponse.json(contacts);
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || 'Failed to fetch messages' },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import { User } from '@/lib/models/User';
 import { hashPassword } from '@/lib/auth-server';
+import { signToken } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     await connectToDatabase();
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return NextResponse.json(
         { error: 'An account with this email already exists' },
@@ -28,18 +29,36 @@ export async function POST(req: NextRequest) {
 
     const user = await User.create({
       name,
-      email,
+      email: email.toLowerCase(),
       password: hashedPassword,
       role: 'user',
     });
 
-    return NextResponse.json(
+    const token = await signToken({
+      userId: user._id.toString(),
+      email: user.email,
+      role: user.role || 'user',
+    });
+
+    const response = NextResponse.json(
       {
         message: 'Account created successfully',
-        user: { id: user._id, name: user.name, email: user.email },
+        user: { id: user._id, name: user.name, email: user.email, role: user.role },
       },
       { status: 201 }
     );
+
+    response.cookies.set({
+      name: 'token',
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24,
+    });
+
+    return response;
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || 'Failed to create account' },

@@ -2,6 +2,7 @@ import { Schema, model, models } from 'mongoose';
 
 const OrderItemSchema = new Schema(
   {
+    productId: String,
     name: String,
     quantity: Number,
     amount: Number,
@@ -18,7 +19,7 @@ const OrderSchema = new Schema(
     currency: { type: String },
     status: {
       type: String,
-      enum: ['paid', 'accepted', 'rejected', 'refunded'],
+      enum: ['paid', 'accepted', 'delivered', 'rejected', 'refunded'],
       default: 'paid',
     },
     couponCode: { type: String },

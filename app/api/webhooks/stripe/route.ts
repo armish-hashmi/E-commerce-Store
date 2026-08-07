@@ -83,6 +83,12 @@ export async function POST(req: NextRequest) {
             title: 'Subscription Active',
             message: 'Your subscription is now active — enjoy your member discount!',
           });
+          
+          await notifyAdmin({
+            title: 'New Subscription',
+            message: `${email} just subscribed to Premium.`,
+          });
+
         }
       } catch (err) {
         console.error('Failed to save subscription from Stripe webhook:', err);
@@ -94,7 +100,7 @@ export async function POST(req: NextRequest) {
 
     try {
       const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
-        expand: ['line_items'],
+        expand: ['line_items', 'line_items.data.price.product'],
       });
 
       await connectToDatabase();
@@ -118,11 +124,20 @@ export async function POST(req: NextRequest) {
           status: 'paid',
           couponCode: couponCode || undefined,
           couponDiscountAmount: couponDiscountAmount || undefined,
-          items: (fullSession.line_items?.data || []).map((item) => ({
-            name: item.description,
-            quantity: item.quantity,
-            amount: (item.amount_total || 0) / 100,
-          })),
+          items: (fullSession.line_items?.data || []).map((item) => {
+            const product = item.price?.product;
+            const productId =
+              product && typeof product === 'object' && !('deleted' in product)
+                ? (product as Stripe.Product).metadata?.productId
+                : undefined;
+ 
+            return {
+              productId: productId || undefined,
+              name: item.description,
+              quantity: item.quantity,
+              amount: (item.amount_total || 0) / 100,
+            };
+          }),
         });
 
         if (couponCode) {

@@ -2,14 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import { Product } from '@/lib/models/Product';
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    await connectToDatabase();
+
+    const product = await Product.findById(id);
+
+    if (!product) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(product);
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to fetch product' }, { status: 500 });
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params; 
+    const { id } = await params;
     await connectToDatabase();
-    
+
     await Product.findByIdAndDelete(id);
 
     return NextResponse.json({ message: 'Product deleted successfully' }, { status: 200 });
@@ -23,10 +43,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params; 
+    const { id } = await params;
     await connectToDatabase();
-    
-    const body = await request.json(); 
+
+    const body = await request.json();
 
     const updatedProduct = await Product.findByIdAndUpdate(id, body, {
       new: true,

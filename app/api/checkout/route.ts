@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
 
     const origin = req.nextUrl.origin;
 
+    // Determine the member discount server-side — never trust a discount value sent from the client.
     let discountPercent = 0;
     if (authSession?.email) {
       await connectToDatabase();
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
             name:
               discountPercent > 0 ? `${item.name} (${discountPercent}% member discount)` : item.name,
             images: imageUrl ? [imageUrl] : undefined,
+            metadata: { productId: item.id || '' },
           },
           unit_amount: Math.round(discountedPrice * 100),
         },

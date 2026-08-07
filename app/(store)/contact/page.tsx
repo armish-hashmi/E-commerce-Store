@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -37,6 +38,14 @@ export default function ContactPage() {
       }
 
       setSubmitted(true);
+      formRef.current?.reset();
+
+      // Fix: show the success message temporarily, then reset back to the
+      // empty form instead of leaving the user stuck on the confirmation
+      // screen with no way to send another message.
+      setTimeout(() => {
+        setSubmitted(false);
+      }, 3000);
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
@@ -57,7 +66,7 @@ export default function ContactPage() {
             Thank you! Your message has been submitted.
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error}

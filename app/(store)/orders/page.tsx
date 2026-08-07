@@ -13,14 +13,16 @@ interface Order {
   _id: string;
   amountTotal: number;
   currency: string;
-  status: 'paid' | 'accepted' | 'rejected' | 'refunded';
+  status: 'paid' | 'accepted' | 'delivered' | 'rejected' | 'refunded';
+  statusReason?: string;
   items: OrderItem[];
   createdAt: string;
 }
 
 const statusStyles: Record<string, string> = {
   paid: 'bg-amber-50 text-amber-700 border border-amber-200',
-  accepted: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  accepted: 'bg-blue-50 text-blue-700 border border-blue-200',
+  delivered: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
   rejected: 'bg-red-50 text-red-700 border border-red-200',
   refunded: 'bg-gray-100 text-gray-600 border border-gray-200',
 };
@@ -28,6 +30,7 @@ const statusStyles: Record<string, string> = {
 const statusLabels: Record<string, string> = {
   paid: 'Processing',
   accepted: 'Accepted',
+  delivered: 'Delivered',
   rejected: 'Rejected',
   refunded: 'Refunded',
 };
@@ -121,6 +124,21 @@ export default function OrdersPage() {
                   {statusLabels[order.status]}
                 </span>
               </div>
+
+              {(order.status === 'refunded' || order.status === 'rejected') && order.statusReason && (
+                <div
+                  className={`mt-3 rounded-lg border px-3 py-2.5 text-xs ${
+                    order.status === 'refunded'
+                      ? 'bg-gray-50 border-gray-200 text-gray-600'
+                      : 'bg-red-50 border-red-200 text-red-700'
+                  }`}
+                >
+                  <span className="font-semibold">
+                    {order.status === 'refunded' ? 'Refund reason: ' : 'Rejection reason: '}
+                  </span>
+                  {order.statusReason}
+                </div>
+              )}
 
               <ul className="mt-4 divide-y divide-gray-100 border-t border-gray-100">
                 {order.items.map((item, idx) => (

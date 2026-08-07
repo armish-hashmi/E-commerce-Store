@@ -58,10 +58,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       socketRef.current?.disconnect();
       socketRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Clear the badge once the admin actually visits the chat page.
   useEffect(() => {
     if (pathname === '/admin/chat') {
       setChatUnreadTotal(0);
@@ -145,6 +143,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           className={`${baseNavLinkClass} ${isActive('/admin/coupons') ? activeNavLinkClass : inactiveNavLinkClass}`}
         >
           Coupons & Discounts
+        </Link>
+        <Link
+          href="/admin/messages"
+          onClick={closeMenu}
+          className={`${baseNavLinkClass} ${isActive('/admin/messages') ? activeNavLinkClass : inactiveNavLinkClass}`}
+        >
+          Messages
         </Link>
         <Link
           href="/admin/chat"

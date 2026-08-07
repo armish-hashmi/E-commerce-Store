@@ -5,13 +5,13 @@ import Link from 'next/link';
 import ProductCard from '@/components/ui/ProductCard';
 import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '@/data/mockData';
 
+const FALLBACK_CATEGORY_IMAGE = 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=500';
 const PRODUCTS_PER_PAGE = 8;
 
 export default function HomePage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [products, setProducts] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [products, setProducts] = useState<any[]>(MOCK_PRODUCTS);
+  const [categories, setCategories] = useState<any[]>(MOCK_CATEGORIES);
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -26,12 +26,11 @@ export default function HomePage() {
             return;
           }
         }
+        // DB reachable but empty (not seeded yet) — fall back to mock data.
         setProducts(MOCK_PRODUCTS);
       } catch (error) {
         console.error('Failed to fetch products from DB, falling back to mock data', error);
         setProducts(MOCK_PRODUCTS);
-      } finally {
-        setLoadingProducts(false);
       }
     }
 
@@ -45,7 +44,7 @@ export default function HomePage() {
             const mapped = dbCategories.map((c: any) => ({
               id: c._id,
               name: c.name,
-              image: c.image,
+              image: c.image || FALLBACK_CATEGORY_IMAGE,
               itemCount: c.itemCount,
             }));
             setCategories(mapped);
@@ -63,14 +62,19 @@ export default function HomePage() {
     fetchCategories();
   }, []);
 
-  const totalPages = Math.max(1, Math.ceil(products.length / PRODUCTS_PER_PAGE));
-  const paginatedProducts = products.slice(
-    (currentPage - 1) * PRODUCTS_PER_PAGE,
-    currentPage * PRODUCTS_PER_PAGE
+  // Show every product on the homepage instead of only isFeatured ones.
+  const featured = products;
+
+  const totalPages = Math.max(1, Math.ceil(featured.length / PRODUCTS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedFeatured = featured.slice(
+    (safePage - 1) * PRODUCTS_PER_PAGE,
+    safePage * PRODUCTS_PER_PAGE
   );
 
   const goToPage = (page: number) => {
     setCurrentPage(page);
+    document.getElementById('trending-now')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const triggerToast = (itemTitle: string) => {
@@ -80,14 +84,14 @@ export default function HomePage() {
     }, 3000);
   };
 
-  const handleAddToCart = (product: any) => {
+  const handleAddToCart = (product: any, quantity: number = 1) => {
     const savedCart: any[] = JSON.parse(localStorage.getItem('cart') || '[]');
     const existingIndex = savedCart.findIndex((item) => item.id === product.id);
 
     let updatedCart: any[];
     if (existingIndex > -1) {
       updatedCart = [...savedCart];
-      updatedCart[existingIndex].quantity = (updatedCart[existingIndex].quantity || 1) + 1;
+      updatedCart[existingIndex].quantity = (updatedCart[existingIndex].quantity || 1) + quantity;
     } else {
       updatedCart = [
         ...savedCart,
@@ -97,7 +101,7 @@ export default function HomePage() {
           price: product.price,
           image: product.image,
           category: product.category,
-          quantity: 1,
+          quantity,
         },
       ];
     }
@@ -171,62 +175,55 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section id="trending-now" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-tight text-gray-900">Trending Now</h2>
           <Link href="/products" className="text-sm font-semibold text-indigo-600 hover:text-indigo-500">
             View all &rarr;
           </Link>
         </div>
+        <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {paginatedFeatured.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onAddToCart={(quantity) => handleAddToCart(product, quantity)}
+            />
+          ))}
+        </div>
 
-        {loadingProducts ? (
-          <div className="mt-6 py-12 text-center text-gray-500">Loading products...</div>
-        ) : (
-          <>
-            <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {paginatedProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onAddToCart={() => handleAddToCart(product)}
-                />
-              ))}
-            </div>
+        {totalPages > 1 && (
+          <div className="mt-10 flex items-center justify-center gap-2">
+            <button
+              onClick={() => goToPage(safePage - 1)}
+              disabled={safePage === 1}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
 
-            {products.length > 0 && totalPages > 1 && (
-              <div className="mt-10 flex items-center justify-center gap-2">
-                <button
-                  onClick={() => goToPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition"
-                >
-                  Previous
-                </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => goToPage(page)}
+                className={`h-9 w-9 rounded-lg text-sm font-semibold transition ${
+                  page === safePage
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
 
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => goToPage(page)}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                      currentPage === page
-                        ? 'bg-indigo-600 text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-
-                <button
-                  onClick={() => goToPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition"
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </>
+            <button
+              onClick={() => goToPage(safePage + 1)}
+              disabled={safePage === totalPages}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
         )}
       </section>
     </div>

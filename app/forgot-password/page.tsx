@@ -46,8 +46,16 @@ export default function ForgotPasswordPage() {
         </div>
 
         {success ? (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            If an account with that email exists, a reset link has been sent. Check your inbox.
+          <div className="space-y-4">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              We've sent a password reset link to your email. Please check your inbox (and spam folder) to continue.
+            </div>
+            <Link
+              href="/login"
+              className="block w-full rounded-lg bg-indigo-600 py-2.5 text-center font-semibold text-white shadow hover:bg-indigo-700 transition"
+            >
+              Return to Login
+            </Link>
           </div>
         ) : (
           <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
@@ -77,13 +85,14 @@ export default function ForgotPasswordPage() {
             </button>
           </form>
         )}
-
-        <p className="text-center text-xs text-gray-500">
-          Remembered your password?{' '}
-          <Link href="/login" className="font-semibold text-indigo-600 hover:underline">
-            Log in
-          </Link>
-        </p>
+        {!success && (
+          <p className="text-center text-xs text-gray-500">
+            Remembered your password?{' '}
+            <Link href="/login" className="font-semibold text-indigo-600 hover:underline">
+              Log in
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );

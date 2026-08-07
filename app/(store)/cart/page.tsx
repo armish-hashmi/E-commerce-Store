@@ -2,23 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function CartPage() {
+  const router = useRouter();
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [showBanner, setShowBanner] = useState(false);
   const [bannerMessage, setBannerMessage] = useState('Cart updated!');
   const [checkingOut, setCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
-
-  const [couponInput, setCouponInput] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<{
-    code: string;
-    type: 'percentage' | 'fixed';
-    value: number;
-    discountAmount: number;
-  } | null>(null);
-  const [couponError, setCouponError] = useState<string | null>(null);
-  const [applyingCoupon, setApplyingCoupon] = useState(false);
 
   useEffect(() => {
     const loadCart = () => {
@@ -34,6 +26,21 @@ export default function CartPage() {
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // Fix: reset a stuck "Redirecting to checkout..." button state if the user
+  // navigates back to this page via the browser's back-forward cache (bfcache).
+  // Without this, React state from before the Stripe redirect persists and the
+  // button stays disabled until a hard refresh.
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setCheckingOut(false);
+        setCheckoutError(null);
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
   }, []);
 
   const triggerBanner = (message: string) => {
@@ -70,52 +77,32 @@ export default function CartPage() {
     triggerBanner('Item removed from cart');
   };
 
-  const handleApplyCoupon = async () => {
-    if (!couponInput.trim()) return;
-    setCouponError(null);
-    setApplyingCoupon(true);
-
-    try {
-      const res = await fetch('/api/coupons/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: couponInput.trim(), cartTotal: subtotal }),
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.valid) {
-        throw new Error(data.error || 'Invalid coupon code');
-      }
-
-      setAppliedCoupon({
-        code: couponInput.trim().toUpperCase(),
-        type: data.type,
-        value: data.value,
-        discountAmount: data.discountAmount,
-      });
-      setCouponInput('');
-    } catch (err: any) {
-      setCouponError(err.message || 'Failed to apply coupon');
-      setAppliedCoupon(null);
-    } finally {
-      setApplyingCoupon(false);
-    }
-  };
-
-  const handleRemoveCoupon = () => {
-    setAppliedCoupon(null);
-    setCouponError(null);
-  };
-
   const handleCheckout = async () => {
     setCheckoutError(null);
+
+    // Fix: require an active session before proceeding to payment.
+    // Redirect unauthenticated users to login, preserving their intent to
+    // return to the cart (and therefore checkout) after logging in.
+    try {
+      const meRes = await fetch('/api/auth/me');
+      const meData = await meRes.json();
+
+      if (!meData.user) {
+        router.push('/login?redirect=/cart');
+        return;
+      }
+    } catch (err) {
+      setCheckoutError('Unable to verify your session. Please try again.');
+      return;
+    }
+
     setCheckingOut(true);
 
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cartItems, couponCode: appliedCoupon?.code }),
+        body: JSON.stringify({ cartItems }),
       });
 
       const data = await res.json();
@@ -136,12 +123,7 @@ export default function CartPage() {
     0
   );
   const shipping = cartItems.length > 0 ? 15.0 : 0.0;
-  // Note: this is a best-effort preview. The actual charged amount is always
-  // recalculated server-side at checkout (including any subscription
-  // discount stacking), so this may shift slightly by the time you reach
-  // Stripe's page if you're also an active subscriber.
-  const couponDiscount = appliedCoupon?.discountAmount || 0;
-  const total = Math.max(subtotal - couponDiscount, 0) + shipping;
+  const total = subtotal + shipping;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
@@ -172,133 +154,100 @@ export default function CartPage() {
         <div className="mt-6 sm:mt-8 lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-12">
           <section className="lg:col-span-7 rounded-xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm">
             <ul className="divide-y divide-gray-200">
-              {cartItems.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex flex-col sm:flex-row py-4 sm:py-6 gap-4 sm:gap-6"
-                >
-                  <div className="flex items-center gap-4 sm:block">
-                    <img
-                      src={
-                        item.image ||
-                        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500'
-                      }
-                      alt={item.name}
-                      className="h-20 w-20 sm:h-24 sm:w-24 rounded-lg object-cover flex-shrink-0"
-                    />
-                    <div className="sm:hidden flex-1">
-                      <h3 className="font-semibold text-gray-800 text-sm leading-tight">
-                        {item.name}
-                      </h3>
-                      <p className="text-xs text-gray-500 mt-1">{item.category || 'Product'}</p>
-                      <p className="text-sm font-bold text-gray-900 mt-1">
-                        ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
+              {cartItems.map((item) => {
+                const quantity = item.quantity || 1;
+                const unitPrice = item.price || 0;
+                const lineTotal = unitPrice * quantity;
 
-                  <div className="flex flex-1 flex-col justify-between w-full">
-                    <div className="hidden sm:block">
-                      <div className="flex justify-between items-start">
-                        <h3 className="font-semibold text-gray-800 text-base">{item.name}</h3>
-                        <span className="font-bold text-gray-900 ml-4">
-                          ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}
-                        </span>
+                return (
+                  <li
+                    key={item.id}
+                    className="flex flex-col sm:flex-row py-4 sm:py-6 gap-4 sm:gap-6"
+                  >
+                    <div className="flex items-center gap-4 sm:block">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="h-20 w-20 sm:h-24 sm:w-24 rounded-lg object-cover flex-shrink-0"
+                      />
+                      <div className="sm:hidden flex-1">
+                        <h3 className="font-semibold text-gray-800 text-sm leading-tight">
+                          {item.name}
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-1">{item.category || 'Product'}</p>
+                        {/* Fix: show the unit price x quantity calculation, not just the line total */}
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {quantity} x ${unitPrice.toFixed(2)}
+                        </p>
+                        <p className="text-sm font-bold text-gray-900 mt-1">
+                          ${lineTotal.toFixed(2)}
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-500 mt-0.5">{item.category || 'Product'}</p>
                     </div>
 
-                    <div className="flex justify-between items-center mt-3 sm:mt-4 text-sm">
-                      <div className="flex items-center rounded-lg border border-gray-300 bg-gray-50">
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateQuantity(item.id, -1)}
-                          className="px-3 py-1.5 text-gray-600 hover:bg-gray-200 transition rounded-l-lg font-medium"
-                          aria-label="Decrease quantity"
-                        >
-                          -
-                        </button>
-                        <span className="px-3 py-1.5 font-semibold text-gray-800 min-w-[2rem] text-center">
-                          {item.quantity || 1}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateQuantity(item.id, 1)}
-                          className="px-3 py-1.5 text-gray-600 hover:bg-gray-200 transition rounded-r-lg font-medium"
-                          aria-label="Increase quantity"
-                        >
-                          +
-                        </button>
+                    <div className="flex flex-1 flex-col justify-between w-full">
+                      <div className="hidden sm:block">
+                        <div className="flex justify-between items-start">
+                          <h3 className="font-semibold text-gray-800 text-base">{item.name}</h3>
+                          <div className="text-right ml-4">
+                            <span className="font-bold text-gray-900 block">
+                              ${lineTotal.toFixed(2)}
+                            </span>
+                            {/* Fix: show the calculation underneath the total on desktop too */}
+                            <span className="text-xs text-gray-400">
+                              {quantity} x ${unitPrice.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-0.5">{item.category || 'Product'}</p>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(item.id)}
-                        className="text-red-500 hover:text-red-700 hover:underline text-xs sm:text-sm font-medium transition"
-                      >
-                        Remove
-                      </button>
+                      <div className="flex justify-between items-center mt-3 sm:mt-4 text-sm">
+                        <div className="flex items-center rounded-lg border border-gray-300 bg-gray-50">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateQuantity(item.id, -1)}
+                            className="px-3 py-1.5 text-gray-600 hover:bg-gray-200 transition rounded-l-lg font-medium"
+                            aria-label="Decrease quantity"
+                          >
+                            -
+                          </button>
+                          <span className="px-3 py-1.5 font-semibold text-gray-800 min-w-[2rem] text-center">
+                            {quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateQuantity(item.id, 1)}
+                            className="px-3 py-1.5 text-gray-600 hover:bg-gray-200 transition rounded-r-lg font-medium"
+                            aria-label="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(item.id)}
+                          className="text-red-500 hover:text-red-700 hover:underline text-xs sm:text-sm font-medium transition"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           </section>
 
           <section className="mt-6 lg:mt-0 rounded-xl bg-gray-100 p-5 sm:p-6 lg:col-span-5 lg:sticky lg:top-6">
             <h2 className="text-lg font-bold text-gray-900">Order Summary</h2>
 
-            <div className="mt-4">
-              {appliedCoupon ? (
-                <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-                  <div className="text-sm">
-                    <span className="font-semibold text-emerald-700">{appliedCoupon.code}</span>
-                    <span className="ml-2 text-emerald-600">
-                      {appliedCoupon.type === 'percentage'
-                        ? `${appliedCoupon.value}% off`
-                        : `$${appliedCoupon.value.toFixed(2)} off`}
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleRemoveCoupon}
-                    className="text-xs font-semibold text-emerald-700 hover:underline"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={couponInput}
-                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                    onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
-                    placeholder="Coupon code"
-                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase focus:border-indigo-500 focus:outline-none"
-                  />
-                  <button
-                    onClick={handleApplyCoupon}
-                    disabled={applyingCoupon || !couponInput.trim()}
-                    className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
-                  >
-                    {applyingCoupon ? 'Applying...' : 'Apply'}
-                  </button>
-                </div>
-              )}
-              {couponError && <p className="mt-1.5 text-xs text-red-600">{couponError}</p>}
-            </div>
-
             <div className="mt-4 space-y-3 border-b border-gray-200 pb-4 text-sm">
               <div className="flex justify-between text-gray-600">
                 <span>Subtotal</span>
                 <span className="font-semibold text-gray-900">${subtotal.toFixed(2)}</span>
               </div>
-              {appliedCoupon && (
-                <div className="flex justify-between text-emerald-600">
-                  <span>Coupon discount</span>
-                  <span className="font-semibold">-${couponDiscount.toFixed(2)}</span>
-                </div>
-              )}
               <div className="flex justify-between text-gray-600">
                 <span>Estimated Shipping</span>
                 <span className="font-semibold text-gray-900">${shipping.toFixed(2)}</span>
