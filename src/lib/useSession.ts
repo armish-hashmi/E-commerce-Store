@@ -18,8 +18,9 @@ async function fetchSession(): Promise<SessionUser | null> {
     inFlight = fetch('/api/auth/me')
       .then((res) => res.json())
       .then((data) => {
-        cachedUser = data.user || null;
-        return cachedUser;
+        const resolvedUser: SessionUser | null = data?.user ?? null;
+        cachedUser = resolvedUser;
+        return resolvedUser;
       })
       .catch(() => {
         cachedUser = null;
