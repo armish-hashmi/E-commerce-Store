@@ -3,20 +3,21 @@ import { connectToDatabase } from '@/lib/db';
 import { Review } from '@/lib/models/Review';
 import { getSession } from '@/lib/auth';
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'You must be logged in to vote' }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { reviewId } = await req.json();
+    if (!reviewId) {
+      return NextResponse.json({ error: 'reviewId is required' }, { status: 400 });
+    }
+
     await connectToDatabase();
 
-    const review = await Review.findById(id);
+    const review = await Review.findById(reviewId);
     if (!review) {
       return NextResponse.json({ error: 'Review not found' }, { status: 404 });
     }
